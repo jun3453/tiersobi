@@ -54,6 +54,7 @@ const btnApplyBulkItems = document.getElementById('btn-apply-bulk-items');
 const playingRoundBadge = document.getElementById('playing-round-badge');
 const playingHostBadge = document.getElementById('playing-host-badge');
 const playingThemeTitle = document.getElementById('playing-theme-title');
+const playingThemeCreator = document.getElementById('playing-theme-creator');
 const playingRoleBanner = document.getElementById('playing-role-banner');
 const playingRoleMainText = document.getElementById('playing-role-main-text');
 const playingRoleSubText = document.getElementById('playing-role-sub-text');
@@ -76,12 +77,17 @@ const tierSlotElements = {
   D: document.getElementById('tier-slot-d')
 };
 const btnSubmitTier = document.getElementById('btn-submit-tier');
+const btnEditAgainTier = document.getElementById('btn-edit-again-tier');
 const submitStatusMsg = document.getElementById('submit-status-msg');
 const submitGuideHint = document.getElementById('submit-guide-hint');
+const submissionStatusCard = document.getElementById('submission-status-card');
+const submissionCountBadge = document.getElementById('submission-count-badge');
+const submissionPlayersList = document.getElementById('submission-players-list');
 
 // 結果画面
 const resultRoundTitle = document.getElementById('result-round-title');
 const resultRoundSubtitle = document.getElementById('result-round-subtitle');
+const hostBonusContainer = document.getElementById('host-bonus-container');
 const roundScoresContainer = document.getElementById('round-scores-container');
 const comparisonTiersContainer = document.getElementById('comparison-tiers-container');
 const cumulativeScoresBody = document.getElementById('cumulative-scores-body');
@@ -456,6 +462,18 @@ btnRuleHasOrder.addEventListener('click', () => {
   notifyTierRuleChange(true);
 });
 
+/**
+ * 配列のランダムシャッフル (Fisher-Yates)
+ */
+function shuffleArray(arr) {
+  const array = [...arr];
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 // ==========================================
 // ゲームセッション & ラウンド構築 (ホスト専用)
 // ==========================================
@@ -464,40 +482,50 @@ function startSession() {
   // 有効なお題（スキップされていないもの）
   const validThemes = hostManager.collectAllSubmittedThemes().filter(t => !t.isSkipped && t.theme && t.items && t.items.length >= MIN_ITEMS);
 
-  // 穴埋め用プール：提出された有効なお題があればそこから選出、0件なら例文から
-  let fallbackPool = [];
-  if (validThemes.length > 0) {
-    players.forEach(() => {
-      fallbackPool.push(validThemes[Math.floor(Math.random() * validThemes.length)]);
-    });
-  } else {
-    let exampleIdx = 0;
-    players.forEach(() => {
-      const ex = THEME_EXAMPLES[exampleIdx % THEME_EXAMPLES.length];
-      fallbackPool.push({
-        creatorId: 'preset',
-        creatorName: '運営',
-        theme: ex.theme,
-        items: ex.items
-      });
+  // 1. 主役（回答順）をランダムにシャッフル
+  const shuffledPlayers = shuffleArray(players);
+
+  // 2. お題プールをランダムにシャッフル
+  const shuffledThemes = shuffleArray(validThemes);
+
+  // 不足分を補うためのプリセットお題プール（ランダム）
+  const shuffledExamples = shuffleArray(THEME_EXAMPLES).map(ex => ({
+    creatorId: 'preset',
+    creatorName: '運営',
+    theme: ex.theme,
+    items: ex.items
+  }));
+
+  // 各ラウンドにお題を割り当て（提出お題を優先・不足分はプリセットで穴埋め）
+  const assignedThemes = [];
+  let themeIdx = 0;
+  let exampleIdx = 0;
+
+  for (let i = 0; i < shuffledPlayers.length; i++) {
+    if (themeIdx < shuffledThemes.length) {
+      assignedThemes.push(shuffledThemes[themeIdx]);
+      themeIdx++;
+    } else {
+      assignedThemes.push(shuffledExamples[exampleIdx % shuffledExamples.length]);
       exampleIdx++;
-    });
+    }
   }
-  fallbackPool.sort(() => Math.random() - 0.5);
+
+  // お題の割り当て順もさらにシャッフル
+  const finalThemes = shuffleArray(assignedThemes);
 
   // 各ラウンドの構築
   sessionRounds = [];
-  players.forEach((player, idx) => {
-    // プレイヤーが自作したお題があるか
-    const ownTheme = validThemes.find(t => t.creatorId === player.id);
-    // 自作お題があれば優先、スキップしていればプールから穴埋め
-    const chosenTheme = ownTheme || fallbackPool[idx % fallbackPool.length];
+  shuffledPlayers.forEach((player, idx) => {
+    const chosenTheme = finalThemes[idx];
 
     sessionRounds.push({
       round: idx + 1,
-      totalRounds: players.length,
+      totalRounds: shuffledPlayers.length,
       hostPlayerId: player.id,
       hostPlayerName: player.name,
+      themeCreatorId: chosenTheme.creatorId,
+      themeCreatorName: chosenTheme.creatorName || '運営',
       theme: chosenTheme.theme,
       items: chosenTheme.items
     });
@@ -526,6 +554,43 @@ function launchRound(index) {
   setupAndShowPlayingScreen(roundInfo);
 }
 
+/**
+ * プレイ画面の提出状況UI更新
+ */
+function updateSubmissionStatusUI(statusList) {
+  if (!statusList || !submissionPlayersList) return;
+
+  submissionPlayersList.innerHTML = '';
+  let submittedCount = 0;
+
+  statusList.forEach((p) => {
+    if (p.submitted) submittedCount++;
+
+    const chip = document.createElement('div');
+    chip.className = `submission-player-chip ${p.submitted ? 'is-submitted' : 'is-thinking'} ${p.isRoundHost ? 'is-round-host' : ''}`;
+
+    const isMe = (p.id === myPeerId) || (currentRole === 'host' && hostManager && p.id === hostManager.myPeerId);
+    const hostTag = p.isRoundHost ? '👑 ' : '';
+    const nameText = `${hostTag}${p.name}${isMe ? ' (あなた)' : ''}`;
+
+    chip.innerHTML = `
+      <span class="status-icon">${p.submitted ? '✅' : '⏳'}</span>
+      <span>${nameText}</span>
+      <span style="font-size:0.75rem; opacity:0.8;">${p.submitted ? '(提出済)' : '(考え中)'}</span>
+    `;
+    submissionPlayersList.appendChild(chip);
+  });
+
+  if (submissionCountBadge) {
+    submissionCountBadge.textContent = `${submittedCount} / ${statusList.length} 人 提出完了`;
+    if (submittedCount === statusList.length && statusList.length > 0) {
+      submissionCountBadge.classList.add('all-submitted');
+    } else {
+      submissionCountBadge.classList.remove('all-submitted');
+    }
+  }
+}
+
 // ==========================================
 // プレイ画面制御
 // ==========================================
@@ -537,6 +602,12 @@ async function setupAndShowPlayingScreen(roundInfo) {
   // ラウンドバナー更新
   playingRoundBadge.textContent = `ROUND ${roundInfo.round} / ${roundInfo.totalRounds}`;
   playingThemeTitle.textContent = roundInfo.theme;
+  if (playingThemeCreator) {
+    const creatorName = roundInfo.themeCreatorName || '運営';
+    const isMe = (roundInfo.themeCreatorId === myPeerId) || 
+      (currentRole === 'host' && hostManager && roundInfo.themeCreatorId === hostManager.myPeerId);
+    playingThemeCreator.textContent = `💡 出題者: ${creatorName}${isMe ? ' (あなた)' : ''}`;
+  }
   poolCountBadge.textContent = `残り ${roundInfo.items.length} 個`;
 
   const isCurrentRoundHost = (roundInfo.hostPlayerId === myPeerId) || 
@@ -572,8 +643,15 @@ async function setupAndShowPlayingScreen(roundInfo) {
   // UIリセット
   btnSubmitTier.disabled = true;
   btnSubmitTier.style.display = 'inline-flex';
+  btnEditAgainTier.style.display = 'none';
   submitStatusMsg.classList.remove('visible');
   submitGuideHint.style.display = 'block';
+
+  // ホストなら提出ステータスを初期化ブロードキャスト
+  if (currentRole === 'host' && hostManager) {
+    const initialList = hostManager.broadcastSubmissionStatus(roundInfo.hostPlayerId, false);
+    updateSubmissionStatusUI(initialList);
+  }
 
   // TierBoard初期化
   if (!tierBoard) {
@@ -608,6 +686,7 @@ btnSubmitTier.addEventListener('click', () => {
   btnSubmitTier.style.display = 'none';
   submitGuideHint.style.display = 'none';
   submitStatusMsg.classList.add('visible');
+  btnEditAgainTier.style.display = 'block';
   mySubmittedTier = finalTier;
 
   if (currentRole === 'host') {
@@ -617,10 +696,38 @@ btnSubmitTier.addEventListener('click', () => {
       hasOrder: currentRoundHasOrder
     });
     showToast('Tier配置を確定しました！', 'success');
+    const list = hostManager.broadcastSubmissionStatus(currentRoundData.hostPlayerId, true);
+    updateSubmissionStatusUI(list);
     checkRoundSubmissionsAndReveal();
   } else {
     guestManager.submitTier(finalTier, currentRoundHasOrder);
     showToast('Tier配置を提出しました！他のプレイヤーを待っています...', 'success');
+  }
+});
+
+// 再編集ボタン (提出取り消し・ロック解除)
+btnEditAgainTier.addEventListener('click', () => {
+  if (!tierBoard) return;
+
+  tierBoard.setLocked(false);
+  btnSubmitTier.disabled = false;
+  btnSubmitTier.style.display = 'inline-flex';
+  btnEditAgainTier.style.display = 'none';
+  submitStatusMsg.classList.remove('visible');
+  submitGuideHint.style.display = 'block';
+  submitGuideHint.textContent = '配置を再編集できます。完了したらもう一度送信してください。';
+  submitGuideHint.style.color = 'var(--text-secondary)';
+
+  mySubmittedTier = null;
+
+  if (currentRole === 'host') {
+    currentRoundSubmittedTiers.delete(hostManager.myPeerId);
+    const list = hostManager.broadcastSubmissionStatus(currentRoundData.hostPlayerId, false);
+    updateSubmissionStatusUI(list);
+    showToast('提出を解除しました。配置を再編集できます。', 'info');
+  } else if (guestManager) {
+    guestManager.cancelSubmission();
+    showToast('提出を解除しました。配置を再編集できます。', 'info');
   }
 });
 
@@ -737,6 +844,26 @@ function checkRoundSubmissionsAndReveal() {
     // 今回のスコアを降順ソート
     roundScores.sort((a, b) => b.score - a.score);
 
+    // 主役への点数付与 (全推理役の平均スコア)
+    let avgScore = 0;
+    if (roundScores.length > 0) {
+      const sum = roundScores.reduce((acc, sc) => acc + (sc.score || 0), 0);
+      avgScore = Math.round(sum / roundScores.length);
+    }
+
+    const hostBonus = {
+      peerId: roundHostId,
+      playerName: currentRoundData.hostPlayerName || '主役',
+      points: avgScore
+    };
+
+    // 累計スコアに主役の平均点を加算
+    if (cumulativeScoresMap.has(roundHostId)) {
+      const cum = cumulativeScoresMap.get(roundHostId);
+      cum.totalScore += avgScore;
+      cumulativeScoresMap.set(roundHostId, cum);
+    }
+
     // 累計スコア配列化
     const cumulativeScoresList = Array.from(cumulativeScoresMap.entries()).map(([peerId, data]) => ({
       peerId,
@@ -752,6 +879,9 @@ function checkRoundSubmissionsAndReveal() {
       roundHostId,
       roundHostName: currentRoundData.hostPlayerName,
       roundHostTier,
+      themeCreatorId: currentRoundData.themeCreatorId,
+      themeCreatorName: currentRoundData.themeCreatorName,
+      hostBonus,
       scores: roundScores,
       cumulativeScores: cumulativeScoresList,
       allTiers,
@@ -778,6 +908,7 @@ function checkRoundSubmissionsAndReveal() {
 function showResultScreen(payload) {
   try {
     if (!payload) return;
+    if (btnEditAgainTier) btnEditAgainTier.style.display = 'none';
     const isHasOrder = Boolean(payload.hasOrder);
     currentRoundHasOrder = isHasOrder;
 
@@ -797,6 +928,27 @@ function showResultScreen(payload) {
       : `🎉 Round ${round} / ${totalRounds} 結果発表！`;
     const ruleText = isHasOrder ? '左右差あり (左ほど上位)' : '左右差なし (順不同)';
     resultRoundSubtitle.innerHTML = `主役（<strong>${roundHostName}</strong>さん）のTierとの一致度 <span class="badge" style="background: rgba(255,255,255,0.1); margin-left: 6px;">${ruleText}</span>`;
+
+    // 主役ボーナスカードの表示
+    if (hostBonusContainer) {
+      if (payload.hostBonus && typeof payload.hostBonus.points === 'number') {
+        hostBonusContainer.style.display = 'flex';
+        hostBonusContainer.innerHTML = `
+          <div class="host-bonus-left">
+            <div class="host-bonus-icon">👑</div>
+            <div>
+              <div class="host-bonus-label">主役ポイント獲得！</div>
+              <div class="host-bonus-name">${payload.hostBonus.playerName} さん</div>
+              <div class="host-bonus-reason">みんなの推理平均点（+${payload.hostBonus.points}点）を獲得しました！</div>
+            </div>
+          </div>
+          <div class="host-bonus-points">+${payload.hostBonus.points} 点</div>
+        `;
+      } else {
+        hostBonusContainer.style.display = 'none';
+        hostBonusContainer.innerHTML = '';
+      }
+    }
 
     // 1. 今回のラウンドスコアランキング
     roundScoresContainer.innerHTML = '';
@@ -819,7 +971,10 @@ function showResultScreen(payload) {
             mark = '⭕ 完全一致 (+20)';
           } else if (d.points === 10) {
             ptsClass = 'match-near';
-            mark = d.matchType === 'order-miss' ? '△ 順序ズレ (+10)' : '△ 1ズレ (+10)';
+            mark = '△ 順序ズレ (+10)';
+          } else if (d.points === 5) {
+            ptsClass = 'match-near';
+            mark = '△ 1ズレ (+5)';
           }
           return `
             <div class="score-detail-chip">
@@ -966,7 +1121,16 @@ btnCreateRoom.addEventListener('click', async () => {
       },
       onTierSubmit: (peerId, playerName) => {
         showToast(`📝 ${playerName} さんが回答を提出しました`, 'info');
+        const hostSubmitted = mySubmittedTier !== null;
+        const list = hostManager.broadcastSubmissionStatus(currentRoundData ? currentRoundData.hostPlayerId : null, hostSubmitted);
+        updateSubmissionStatusUI(list);
         checkRoundSubmissionsAndReveal();
+      },
+      onPlayerUnsubmit: (peerId, playerName) => {
+        showToast(`↩ ${playerName} さんが再編集を開始しました`, 'info');
+        const hostSubmitted = mySubmittedTier !== null;
+        const list = hostManager.broadcastSubmissionStatus(currentRoundData ? currentRoundData.hostPlayerId : null, hostSubmitted);
+        updateSubmissionStatusUI(list);
       },
       onError: (err) => {
         showToast(`通信エラー: ${err.message || err}`, 'error');
@@ -1053,6 +1217,9 @@ btnJoinRoom.addEventListener('click', async () => {
       onTierRuleUpdate: (hasOrder) => {
         updateGuesserRuleDisplay(hasOrder);
         showToast(hasOrder ? '⚠️ 主役が左右差ルールを「あり (左ほど上位)」に変更しました！' : '主役が左右差ルールを「なし (順不同)」に変更しました', 'info');
+      },
+      onSubmissionStatusUpdate: (statusList) => {
+        updateSubmissionStatusUI(statusList);
       },
       onRoundResultReveal: (payload) => {
         showToast('🎉 結果が発表されました！', 'success');

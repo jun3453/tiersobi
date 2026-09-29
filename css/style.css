@@ -492,6 +492,68 @@ input[type="text"]:focus, select:focus, textarea:focus {
   color: #ffffff;
 }
 
+.current-theme-creator {
+  font-size: 0.85rem;
+  color: #38bdf8;
+  margin-top: 4px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#screen-playing.is-round-host .current-theme-creator {
+  color: #fbbf24;
+}
+
+/* 主役ボーナスカード (ゴールド系グラデーション) */
+.host-bonus-card {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.12));
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+.host-bonus-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.host-bonus-icon {
+  font-size: 1.8rem;
+}
+
+.host-bonus-label {
+  font-size: 0.78rem;
+  color: #fbbf24;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.host-bonus-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.host-bonus-reason {
+  font-size: 0.78rem;
+  color: #fef3c7;
+}
+
+.host-bonus-points {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #fbbf24;
+}
+
 /* 画面全体で主役を黄色にするテーマスタイル */
 #screen-playing.is-round-host {
   background: radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0.05) 50%, transparent 80%);
@@ -821,6 +883,99 @@ input[type="text"]:focus, select:focus, textarea:focus {
 
 .submit-status-banner.visible {
   display: block;
+}
+
+/* プレイ中: 全員の提出状況カード */
+.submission-status-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-top: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.submission-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.submission-status-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.submission-count-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.submission-count-badge.all-submitted {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.submission-players-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.submission-player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #151821;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+}
+
+.submission-player-chip.is-submitted {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #a7f3d0;
+}
+
+.submission-player-chip.is-thinking {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #c7d2fe;
+}
+
+.submission-player-chip .status-icon {
+  font-size: 0.95rem;
+}
+
+.submission-player-chip.is-round-host {
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+}
+
+#btn-edit-again-tier {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-weight: 700;
+}
+
+#btn-edit-again-tier:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* Result Screen */

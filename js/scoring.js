@@ -91,7 +91,7 @@ export function calculatePlayerScore(peerId, playerName, guestTier, hostTier, al
           matchType = 'order-miss';
         }
       } else if (rankDiff === 1) {
-        points = 10; // 1ランクズレ (50%)
+        points = 5;  // 1ランクズレ (25%)
         matchType = 'near';
       } else {
         points = 0;  // 2ランク以上ズレ
@@ -103,7 +103,7 @@ export function calculatePlayerScore(peerId, playerName, guestTier, hostTier, al
         points = 20; // ランク一致なら順番不問で満点 (100%)
         matchType = 'exact';
       } else if (rankDiff === 1) {
-        points = 10; // 1ランクズレ (50%)
+        points = 5;  // 1ランクズレ (25%)
         matchType = 'near';
       } else {
         points = 0;

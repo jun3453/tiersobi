@@ -9,6 +9,8 @@ export const PACKET_TYPES = {
   START_ROUND: 'START_ROUND',
   UPDATE_TIER_RULE: 'UPDATE_TIER_RULE',
   SUBMIT_TIER: 'SUBMIT_TIER',
+  CANCEL_SUBMISSION: 'CANCEL_SUBMISSION',
+  SUBMISSION_STATUS: 'SUBMISSION_STATUS',
   REVEAL_ROUND_RESULT: 'REVEAL_ROUND_RESULT',
   BACK_TO_LOBBY: 'BACK_TO_LOBBY'
 };
@@ -36,6 +38,7 @@ export class HostPeerManager {
     onPlayerReadyChange,
     onTierRuleUpdate,
     onTierSubmit,
+    onPlayerUnsubmit,
     onError
   }) {
     this.onReady = onReady;
@@ -44,6 +47,7 @@ export class HostPeerManager {
     this.onPlayerReadyChange = onPlayerReadyChange;
     this.onTierRuleUpdate = onTierRuleUpdate;
     this.onTierSubmit = onTierSubmit;
+    this.onPlayerUnsubmit = onPlayerUnsubmit;
     this.onError = onError;
 
     this.peer = null;
@@ -167,6 +171,17 @@ export class HostPeerManager {
         }
         break;
       }
+
+      case PACKET_TYPES.CANCEL_SUBMISSION: {
+        const player = this.players.get(peerId);
+        if (player) {
+          player.submitted = false;
+          player.tier = null;
+          console.log(`[Host] Tier提出取り消し受信: ${player.name} (${peerId})`);
+          if (this.onPlayerUnsubmit) this.onPlayerUnsubmit(peerId, player.name);
+        }
+        break;
+      }
     }
   }
 
@@ -175,6 +190,41 @@ export class HostPeerManager {
    */
   broadcastTierRule(hasOrder) {
     this.broadcast(PACKET_TYPES.UPDATE_TIER_RULE, { hasOrder });
+  }
+
+  /**
+   * 全プレイヤーの提出ステータスリストを取得
+   */
+  getSubmissionStatusList(roundHostId, hostSubmitted) {
+    const list = [
+      {
+        id: this.myPeerId,
+        name: this.myPlayerName,
+        submitted: Boolean(hostSubmitted),
+        isRoundHost: this.myPeerId === roundHostId,
+        isHost: true
+      }
+    ];
+    for (const [peerId, p] of this.players.entries()) {
+      if (p.conn && !p.conn.open) continue;
+      list.push({
+        id: peerId,
+        name: p.name,
+        submitted: Boolean(p.submitted),
+        isRoundHost: peerId === roundHostId,
+        isHost: false
+      });
+    }
+    return list;
+  }
+
+  /**
+   * 全プレイヤーの提出ステータスを全ゲストにブロードキャスト
+   */
+  broadcastSubmissionStatus(roundHostId, hostSubmitted) {
+    const list = this.getSubmissionStatusList(roundHostId, hostSubmitted);
+    this.broadcast(PACKET_TYPES.SUBMISSION_STATUS, { statusList: list });
+    return list;
   }
 
   /**
@@ -342,6 +392,7 @@ export class GuestPeerManager {
     onLobbyStateUpdate,
     onRoundStart,
     onTierRuleUpdate,
+    onSubmissionStatusUpdate,
     onRoundResultReveal,
     onBackToLobby,
     onHostDisconnected,
@@ -351,6 +402,7 @@ export class GuestPeerManager {
     this.onLobbyStateUpdate = onLobbyStateUpdate;
     this.onRoundStart = onRoundStart;
     this.onTierRuleUpdate = onTierRuleUpdate;
+    this.onSubmissionStatusUpdate = onSubmissionStatusUpdate;
     this.onRoundResultReveal = onRoundResultReveal;
     this.onBackToLobby = onBackToLobby;
     this.onHostDisconnected = onHostDisconnected;
@@ -423,6 +475,10 @@ export class GuestPeerManager {
         if (this.onTierRuleUpdate) this.onTierRuleUpdate(Boolean(packet.payload && packet.payload.hasOrder));
         break;
 
+      case PACKET_TYPES.SUBMISSION_STATUS:
+        if (this.onSubmissionStatusUpdate) this.onSubmissionStatusUpdate(packet.payload.statusList);
+        break;
+
       case PACKET_TYPES.REVEAL_ROUND_RESULT:
         if (this.onRoundResultReveal) this.onRoundResultReveal(packet.payload);
         break;
@@ -454,6 +510,15 @@ export class GuestPeerManager {
       return false;
     }
     this.send(PACKET_TYPES.SUBMIT_TIER, { tier: tierState, hasOrder: Boolean(hasOrder) });
+    return true;
+  }
+
+  cancelSubmission() {
+    if (!this.conn || !this.conn.open) {
+      console.error('[Guest] 送信失敗: ホストとの接続が切断されています');
+      return false;
+    }
+    this.send(PACKET_TYPES.CANCEL_SUBMISSION, null);
     return true;
   }
 

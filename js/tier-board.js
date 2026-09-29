@@ -244,9 +244,9 @@ export function createReadonlyTierTable(tierState, options = {}) {
                 chip.classList.add('chip-match-near');
                 chip.title = `順序ズレ (正解は${hostPos.index + 1}番目 +10)`;
               } else if (rankDiff === 1) {
-                // 1ランクズレ (+10)
+                // 1ランクズレ (+5)
                 chip.classList.add('chip-match-near');
-                chip.title = `1ランクズレ (正解: ${hostPos.rank} +10)`;
+                chip.title = `1ランクズレ (正解: ${hostPos.rank} +5)`;
               } else {
                 chip.classList.add('chip-match-miss');
                 chip.title = `ズレ (正解: ${hostPos.rank}の${hostPos.index + 1}番目)`;
@@ -273,7 +273,7 @@ export function createReadonlyTierTable(tierState, options = {}) {
                 chip.title = '完全一致 (+20)';
               } else if (diff === 1) {
                 chip.classList.add('chip-match-near');
-                chip.title = '1ランクズレ (+10)';
+                chip.title = '1ランクズレ (+5)';
               } else {
                 chip.classList.add('chip-match-miss');
                 chip.title = `ズレ (正解: ${hostRank})`;

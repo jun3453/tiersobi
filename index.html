@@ -159,6 +159,7 @@
         <div class="theme-display-banner">
           <div class="current-theme-label">今回のお題</div>
           <div id="playing-theme-title" class="current-theme-title">カレーに入れるなら？</div>
+          <div id="playing-theme-creator" class="current-theme-creator">💡 出題者: 運営</div>
         </div>
 
         <!-- ★大きく目立つ役割案内バナー -->
@@ -236,8 +237,22 @@
         <button id="btn-submit-tier" class="btn btn-primary btn-block btn-lg" type="button" disabled>
           ✅ このTier配置で決定して送信
         </button>
+        <button id="btn-edit-again-tier" class="btn btn-secondary btn-block" type="button" style="display: none; margin-top: 10px;">
+          ↩ 再編集する (ロック解除)
+        </button>
         <div id="submit-guide-hint" class="submit-guide-text">
           すべてのアイテムをいずれかのTierに配置すると送信できます。
+        </div>
+      </div>
+
+      <!-- ★提出状況パネル (誰が待っているか・考え中かをリアルタイム表示) -->
+      <div class="submission-status-card" id="submission-status-card">
+        <div class="submission-status-header">
+          <span class="submission-status-title">👥 全員の提出状況</span>
+          <span id="submission-count-badge" class="submission-count-badge">0 / 0 人 提出完了</span>
+        </div>
+        <div id="submission-players-list" class="submission-players-list">
+          <!-- プレイヤー進捗チップが動的生成されます -->
         </div>
       </div>
     </main>
@@ -254,6 +269,11 @@
           </p>
         </div>
 
+        <!-- ★主役ボーナスカード -->
+        <div id="host-bonus-container" class="host-bonus-card" style="display: none;">
+          <!-- 動的生成 -->
+        </div>
+
         <!-- 今回のラウンドスコアランキング -->
         <div class="card">
           <div class="card-title">📊 今回のスコアランキング</div>
@@ -266,7 +286,7 @@
         <div class="card">
           <div class="card-title">👀 みんなのTier表を見比べよう！</div>
           <p class="hint-text" style="margin-bottom: 12px;">
-            👑が今回の主役（正解）です。緑枠は完全一致(+20)、黄枠は1ズレ(+10)を表します。
+            👑が今回の主役（正解）です。緑枠は完全一致(+20)、黄枠は1ズレ(+5)や順序ズレ(+10)を表します。
           </p>
           <div id="comparison-tiers-container">
             <!-- 全員のTier表がグリッドで並列挿入されます -->
@@ -307,6 +327,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20260929f"></script>
+  <script type="module" src="js/app.js?v=20260930c"></script>
 </body>
 </html>
