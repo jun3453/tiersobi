@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>tiersobi</title>
+  <link rel="stylesheet" href="css/style.css?v=20260929d">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-group">
+        <span class="logo-icon">🏆</span>
+        <h1 class="app-title">tiersobi</h1>
+      </div>
+      <div id="connection-indicator" class="connection-badge">
+        <span class="status-dot"></span>
+        <span id="connection-status-text">未接続</span>
+      </div>
+    </header>
+
+    <!-- SCREEN 1: CONNECTING (初期・ルーム接続) -->
+    <main id="screen-connecting" class="screen active">
+      <div class="card">
+        <div class="connect-tabs">
+          <button id="tab-btn-guest" class="connect-tab-btn active" type="button">ゲストとして参加</button>
+          <button id="tab-btn-host" class="connect-tab-btn" type="button">ホストとして部屋を作る</button>
+        </div>
+
+        <!-- ゲスト接続フォーム -->
+        <div id="panel-guest-connect">
+          <div class="form-group">
+            <label for="input-player-name">あなたの名前</label>
+            <input type="text" id="input-player-name" placeholder="例: たろう" maxlength="15" autofocus autocomplete="name">
+          </div>
+          <div class="form-group">
+            <label for="input-host-id">ホストのルームID (Peer ID)</label>
+            <input type="text" id="input-host-id" placeholder="招待リンクを開くか、IDを入力" autocomplete="off">
+            <p class="hint-text">招待リンクから開いた場合は自動的に入力されます。</p>
+          </div>
+          <button id="btn-join-room" class="btn btn-primary btn-block btn-lg" type="button">
+            🎮 ルームに参加する
+          </button>
+        </div>
+
+        <!-- ホスト作成フォーム -->
+        <div id="panel-host-create" style="display: none;">
+          <div class="form-group">
+            <label for="input-host-name">あなたの名前 (ホスト)</label>
+            <input type="text" id="input-host-name" placeholder="例: ホスト" value="ホスト" maxlength="15">
+          </div>
+          <button id="btn-create-room" class="btn btn-primary btn-block btn-lg" type="button">
+            👑 ルームを開設する
+          </button>
+
+          <div id="host-room-info" style="display: none; margin-top: 16px;">
+            <label>参加用招待リンク</label>
+            <div class="invite-box">
+              <span id="invite-link-text" class="invite-url">生成中...</span>
+              <button id="btn-copy-invite" class="btn btn-secondary" type="button" title="URLをコピー">📋 コピー</button>
+            </div>
+            <p class="hint-text">このURLを参加者に共有してください。全員が揃ったらロビーで開始できます。</p>
+            <button id="btn-host-enter-lobby" class="btn btn-success btn-block" style="margin-top: 12px;" type="button">
+              ロビーへ進む ➔
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- SCREEN 2: LOBBY (お題エントリー & 待機) -->
+    <main id="screen-lobby" class="screen">
+      <!-- 参加者情報バー -->
+      <div class="card">
+        <div class="card-title">
+          <span>👥 参加プレイヤー一覧 (<span id="player-count">1</span>人)</span>
+          <span id="lobby-ready-summary" class="badge badge-info">全員Readyで開始</span>
+        </div>
+        <div id="lobby-player-list" class="player-list">
+          <!-- プレイヤー一覧が動的に挿入されます -->
+        </div>
+      </div>
+
+      <!-- お題作成 & Readyカード -->
+      <div class="card">
+        <div class="card-title">📝 あなたのお題とアイテムを設定</div>
+        <p class="hint-text" style="margin-bottom: 12px;">
+          全員のお題がプールされ、各ラウンドでランダムに選ばれます！<br>
+          アイテムは3〜20個まで設定できます。「＋ アイテムを追加」で増やせます。
+        </p>
+
+        <!-- お題スキップチェックボックス -->
+        <div class="form-group checkbox-group" style="margin-bottom: 12px; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: var(--radius-md); border: 1px dashed var(--card-border);">
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; color: var(--text-primary); font-size: 0.9rem;">
+            <input type="checkbox" id="checkbox-skip-theme" style="width: 18px; height: 18px; cursor: pointer;">
+            <span>お題を出さない (誰かのお題をランダムで穴埋め選出)</span>
+          </label>
+        </div>
+
+        <div id="theme-inputs-container">
+          <div class="form-group">
+            <label for="input-my-theme">お題タイトル</label>
+            <input type="text" id="input-my-theme" placeholder="例: カレーに入れるなら？" maxlength="50">
+          </div>
+
+          <!-- カンマ・改行での一括入力エリア -->
+          <div class="bulk-input-section" style="margin-bottom: 12px;">
+            <button type="button" id="btn-toggle-bulk-input" class="btn-text-link">📋 カンマや改行で一括入力する</button>
+            <div id="bulk-input-container" style="display: none; margin-top: 8px;">
+              <textarea id="textarea-bulk-items" rows="2" placeholder="例: マグロ, サーモン, イクラ, ウニ, エビ, 玉子, タコ, イカ..."></textarea>
+              <button type="button" id="btn-apply-bulk-items" class="btn btn-secondary btn-sm" style="margin-top: 6px;">⬇ アイテム入力枠に反映する</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>アイテム選択肢 (3〜20個)</label>
+            <div id="item-inputs-list" class="item-inputs-list">
+              <!-- 動的アイテム行が挿入されます -->
+            </div>
+            <button id="btn-add-item-field" class="btn-add-item" type="button">
+              ＋ アイテムを追加 (最大20個)
+            </button>
+          </div>
+        </div>
+
+        <button id="btn-toggle-ready" class="btn btn-ready btn-block btn-lg" style="margin-top: 16px;" type="button">
+          ✅ このお題でReady！
+        </button>
+      </div>
+
+      <!-- ホスト専用ゲーム開始操作パネル -->
+      <div class="start-action-card" id="host-game-controls" style="display: none;">
+        <button id="btn-start-game" class="btn btn-success btn-block btn-lg" type="button" disabled>
+          🎲 全員Readyでゲームスタート！
+        </button>
+        <p id="host-start-hint" class="hint-text" style="margin-top: 8px;">
+          全員がお題を入力してReadyになると開始できます。
+        </p>
+      </div>
+
+      <!-- ゲスト用待機メッセージ -->
+      <div class="start-action-card" id="guest-waiting-panel" style="display: none;">
+        <p style="color: var(--text-secondary); line-height: 1.6;">
+          ⏳ 全員がReadyになると、ホストがゲームを開始します。
+        </p>
+      </div>
+    </main>
+
+    <!-- SCREEN 3: PLAYING (Tier配置・予想フェーズ) -->
+    <main id="screen-playing" class="screen">
+      <div class="game-header">
+        <div class="round-info-bar">
+          <span id="playing-round-badge" class="round-counter-badge">ROUND 1 / 3</span>
+          <span id="playing-host-badge" class="round-host-badge">👑 主役: たろう</span>
+        </div>
+        <div class="theme-display-banner">
+          <div class="current-theme-label">今回のお題</div>
+          <div id="playing-theme-title" class="current-theme-title">カレーに入れるなら？</div>
+        </div>
+
+        <!-- ★大きく目立つ役割案内バナー -->
+        <div id="playing-role-banner" class="role-action-banner role-host">
+          <div id="playing-role-main-text" class="role-main-text">あなたが主役です！あなたのティア表を作ってください！</div>
+          <div id="playing-role-sub-text" class="role-sub-text">あなたが決める格付けが正解になります。本気で配置しましょう！</div>
+        </div>
+
+        <!-- 左右差ルールバー (主役は設定、推理役は通知を受け取る) -->
+        <div id="tier-order-rule-bar" class="tier-order-rule-bar">
+          <!-- 主役用トグル -->
+          <div id="host-order-rule-control" class="order-rule-control" style="display: none;">
+            <span class="rule-label">⚖️ 左右差ルール:</span>
+            <div class="rule-toggle-group">
+              <button type="button" id="btn-rule-no-order" class="btn-rule-toggle active">左右差なし (順不同)</button>
+              <button type="button" id="btn-rule-has-order" class="btn-rule-toggle">左右差あり (左ほど上位！)</button>
+            </div>
+          </div>
+          <!-- 推理役用バッジ -->
+          <div id="guesser-order-rule-display" class="order-rule-display" style="display: none;">
+            <span id="guesser-order-rule-badge" class="order-rule-badge badge-no-order">⚖️ ルール: 左右差なし (同ランク内は順不同)</span>
+          </div>
+        </div>
+
+        <p class="hint-text">
+          💡 チップをドラッグ、またはタップでS〜Dへ移動できます。
+        </p>
+      </div>
+
+      <!-- 未配置アイテム (Pool) -->
+      <div class="item-pool-card">
+        <div class="pool-header">
+          <span>📦 未配置アイテム</span>
+          <span id="pool-count-badge" class="badge badge-info">残り 5 個</span>
+        </div>
+        <div id="item-pool" class="item-pool">
+          <!-- チップが動的に生成されます -->
+        </div>
+      </div>
+
+      <!-- Tierスロット (S〜D) -->
+      <div class="tier-table-container">
+        <!-- Tier S -->
+        <div class="tier-row tier-row-s">
+          <div class="tier-label" style="background-color: #ff7f7f; color: #fff;">S</div>
+          <div id="tier-slot-s" class="tier-slot" data-rank="S"></div>
+        </div>
+        <!-- Tier A -->
+        <div class="tier-row tier-row-a">
+          <div class="tier-label" style="background-color: #ffbf7f; color: #fff;">A</div>
+          <div id="tier-slot-a" class="tier-slot" data-rank="A"></div>
+        </div>
+        <!-- Tier B -->
+        <div class="tier-row tier-row-b">
+          <div class="tier-label" style="background-color: #ffff7f; color: #333;">B</div>
+          <div id="tier-slot-b" class="tier-slot" data-rank="B"></div>
+        </div>
+        <!-- Tier C -->
+        <div class="tier-row tier-row-c">
+          <div class="tier-label" style="background-color: #7fff7f; color: #333;">C</div>
+          <div id="tier-slot-c" class="tier-slot" data-rank="C"></div>
+        </div>
+        <!-- Tier D -->
+        <div class="tier-row tier-row-d">
+          <div class="tier-label" style="background-color: #7fbfff; color: #fff;">D</div>
+          <div id="tier-slot-d" class="tier-slot" data-rank="D"></div>
+        </div>
+      </div>
+
+      <!-- 決定・送信コントロール -->
+      <div class="submit-control-card">
+        <div id="submit-status-msg" class="submit-status-banner">
+          提出完了！ 他のプレイヤーの提出を待っています...
+        </div>
+        <button id="btn-submit-tier" class="btn btn-primary btn-block btn-lg" type="button" disabled>
+          ✅ このTier配置で決定して送信
+        </button>
+        <div id="submit-guide-hint" class="submit-guide-text">
+          すべてのアイテムをいずれかのTierに配置すると送信できます。
+        </div>
+      </div>
+    </main>
+
+    <!-- SCREEN 4: RESULT (結果発表フェーズ) -->
+    <main id="screen-result" class="screen">
+      <div class="result-section">
+        <!-- 勝者/ラウンドバナー -->
+        <div class="winner-banner">
+          <div class="winner-trophy">🎉</div>
+          <div id="result-round-title" class="winner-title">Round 1 結果発表！</div>
+          <p id="result-round-subtitle" class="hint-text" style="color: #fef3c7; margin-top: 4px;">
+            主役との一致度
+          </p>
+        </div>
+
+        <!-- 今回のラウンドスコアランキング -->
+        <div class="card">
+          <div class="card-title">📊 今回のスコアランキング</div>
+          <div id="round-scores-container" class="score-rankings-list">
+            <!-- 今回のスコアが挿入されます -->
+          </div>
+        </div>
+
+        <!-- ★新機能: みんなのTier表見比べエリア -->
+        <div class="card">
+          <div class="card-title">👀 みんなのTier表を見比べよう！</div>
+          <p class="hint-text" style="margin-bottom: 12px;">
+            👑が今回の主役（正解）です。緑枠は完全一致(+20)、黄枠は1ズレ(+10)を表します。
+          </p>
+          <div id="comparison-tiers-container">
+            <!-- 全員のTier表がグリッドで並列挿入されます -->
+          </div>
+        </div>
+
+        <!-- 累計総合スコアランキング -->
+        <div class="card">
+          <div class="card-title">🏆 セッション総合ランキング</div>
+          <table class="cumulative-table">
+            <thead>
+              <tr>
+                <th style="width: 48px;">順位</th>
+                <th>プレイヤー名</th>
+                <th style="text-align: right;">合計得点</th>
+              </tr>
+            </thead>
+            <tbody id="cumulative-scores-body">
+              <!-- 累計順位行が挿入されます -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ホスト専用進行ボタン -->
+        <div id="result-host-controls" style="display: none;">
+          <button id="btn-next-action" class="btn btn-success btn-block btn-lg" type="button">
+            次のラウンドへ進む ➔
+          </button>
+        </div>
+        <div id="result-guest-waiting" style="display: none; text-align: center; color: var(--text-secondary); padding: 12px;">
+          ホストが次のラウンドを開始するのをお待ちください...
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- トースト通知コンテナ -->
+  <div id="toast-container"></div>
+
+  <!-- エントリーポイント -->
+  <script type="module" src="js/app.js?v=20260929f"></script>
+</body>
+</html>
