@@ -102,7 +102,10 @@
 
         <div id="theme-inputs-container">
           <div class="form-group">
-            <label for="input-my-theme">お題タイトル</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label for="input-my-theme" style="margin-bottom: 0;">お題タイトル</label>
+              <button type="button" id="btn-random-example" class="btn-text-link" style="font-size: 0.85rem;">🎲 他のデフォルトお題をセット</button>
+            </div>
             <input type="text" id="input-my-theme" placeholder="例: カレーに入れるなら？" maxlength="50">
           </div>
 
@@ -327,6 +330,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20260930c"></script>
+  <script type="module" src="js/app.js?v=20260930_110themes"></script>
 </body>
 </html>

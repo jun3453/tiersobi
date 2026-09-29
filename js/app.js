@@ -1,7 +1,7 @@
 import { HostPeerManager, GuestPeerManager } from './p2p.js';
 import { TierBoard, createComparisonGrid } from './tier-board.js';
 import { calculatePlayerScore, buildItemToRankMap } from './scoring.js';
-import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js';
+import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20260930_110themes';
 
 // DOM要素
 const screens = {
@@ -42,6 +42,7 @@ const hostStartHint = document.getElementById('host-start-hint');
 const checkboxSkipTheme = document.getElementById('checkbox-skip-theme');
 const themeInputsContainer = document.getElementById('theme-inputs-container');
 const inputMyTheme = document.getElementById('input-my-theme');
+const btnRandomExample = document.getElementById('btn-random-example');
 const itemInputsList = document.getElementById('item-inputs-list');
 const btnAddItemField = document.getElementById('btn-add-item-field');
 const btnToggleReady = document.getElementById('btn-toggle-ready');
@@ -266,6 +267,7 @@ checkboxSkipTheme.addEventListener('change', () => {
   themeInputsContainer.style.opacity = isSkipped ? '0.4' : '1';
   themeInputsContainer.style.pointerEvents = isSkipped ? 'none' : 'auto';
   inputMyTheme.disabled = isSkipped;
+  if (btnRandomExample) btnRandomExample.disabled = isSkipped;
   itemInputsList.querySelectorAll('input').forEach(i => i.disabled = isSkipped);
   itemInputsList.querySelectorAll('button').forEach(b => b.disabled = isSkipped);
   btnAddItemField.disabled = isSkipped;
@@ -281,10 +283,28 @@ checkboxSkipTheme.addEventListener('change', () => {
 /**
  * 例文から初期フォームをセット
  */
-function setupExampleForm() {
-  const example = THEME_EXAMPLES[Math.floor(Math.random() * THEME_EXAMPLES.length)];
+function setupExampleForm(notify = false) {
+  // 現在のお題と被らない候補から選出
+  const currentTitle = inputMyTheme.value.trim() || inputMyTheme.placeholder.replace(/^例:\s*/, '').trim();
+  const candidates = THEME_EXAMPLES.filter(ex => ex.theme !== currentTitle);
+  const pool = candidates.length > 0 ? candidates : THEME_EXAMPLES;
+  const example = pool[Math.floor(Math.random() * pool.length)];
+
+  inputMyTheme.value = example.theme;
   inputMyTheme.placeholder = `例: ${example.theme}`;
   renderItemInputRows(example.items);
+
+  if (notify) {
+    showToast(`お題「${example.theme}」をセットしました！ (全${THEME_EXAMPLES.length}種)`, 'info');
+  }
+}
+
+// 🎲 他のデフォルトお題をセットボタン
+if (btnRandomExample) {
+  btnRandomExample.addEventListener('click', () => {
+    if (checkboxSkipTheme.checked) return;
+    setupExampleForm(true);
+  });
 }
 
 /**
