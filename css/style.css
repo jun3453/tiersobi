@@ -191,38 +191,411 @@ input[type="text"]:focus, select:focus, textarea:focus {
   margin-bottom: 10px;
 }
 
+/* ロビー画面 UI改善 */
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skip-theme-compact-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.skip-theme-compact-label:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.skip-theme-compact-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--primary-accent);
+}
+
+.field-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.field-main-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0;
+}
+
+.items-count-badge {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* 一括入力開閉パネル */
+.bulk-input-panel {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  margin-bottom: 10px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.bulk-input-panel textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 56px;
+  font-size: 0.85rem;
+}
+
+.bulk-input-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  gap: 8px;
+}
+
+/* アイコンモード選択ピルボタン */
+.mode-pill-group {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.mode-pill-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.mode-pill-btn input[type="radio"] {
+  display: none;
+}
+
+.mode-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.mode-pill-btn.active {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #6366f1;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+}
+
+.mode-pill-btn.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 画像＆アイコン設定専用セクション（オプションまとめ枠） */
+.image-options-section {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-top: 14px;
+  transition: all 0.25s ease;
+}
+
+#theme-inputs-container.is-image-mode .image-options-section {
+  background: rgba(99, 102, 241, 0.04);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+.image-options-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.image-options-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.image-options-icon {
+  font-size: 1rem;
+}
+
+.image-options-heading {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.badge-optional {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.image-mode-desc-text {
+  margin-top: 8px;
+  margin-bottom: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* 画像ありモード時に展開されるコントロール群 */
+.image-mode-controls {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 12px;
+  padding-top: 12px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.image-search-prefix-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 580px) {
+  .image-search-prefix-row {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+}
+
+.prefix-input-wrap {
+  flex: 1;
+}
+
+.prefix-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.prefix-hint {
+  margin-top: 4px;
+  margin-bottom: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.prefix-fetch-wrap {
+  flex-shrink: 0;
+}
+
+.btn-fetch-images {
+  height: 38px;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.image-mode-guide-callout {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  color: #c7d2fe;
+  line-height: 1.5;
+}
+
+/* 文字のみモード時はサムネイル枠・検索ボタン・画像モード専用要素をすべて隠す */
+#theme-inputs-container:not(.is-image-mode) .item-thumb-box,
+#theme-inputs-container:not(.is-image-mode) .btn-search-action,
+#theme-inputs-container:not(.is-image-mode) .image-mode-only {
+  display: none !important;
+}
+
 .item-input-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 4px 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: border-color 0.15s;
+}
+
+.item-input-row:focus-within {
+  border-color: rgba(99, 102, 241, 0.4);
 }
 
 .item-index-label {
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-muted);
-  width: 24px;
+  width: 22px;
   text-align: center;
   flex-shrink: 0;
 }
 
-.item-input-row input {
+.item-input-row .item-name-input {
   flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
+/* サムネイル画像プレビュー枠 */
+.item-thumb-box {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #1e293b;
+  border: 1px dashed #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.15s ease;
+}
+
+.item-thumb-box.has-img {
+  border-style: solid;
+  border-color: #6366f1;
+}
+
+.item-thumb-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.item-thumb-box .thumb-icon-placeholder {
+  font-size: 0.85rem;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.item-thumb-box:hover {
+  border-color: #818cf8;
+  background: #283548;
+}
+
+.item-thumb-box.drag-over {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.25);
+  transform: scale(1.05);
+}
+
+.item-thumb-box .btn-thumb-clear {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 15px;
+  height: 15px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 8px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  z-index: 2;
+  padding: 0;
+  line-height: 1;
+}
+
+.item-thumb-box.has-img:hover .btn-thumb-clear {
+  display: flex;
+}
+
+/* アイテム操作ボタングループ */
+.item-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-row-action {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+  padding: 0;
+  text-decoration: none;
+}
+
+.btn-row-action:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.35);
+  border-color: #6366f1;
+  color: #ffffff;
+}
+
+.btn-row-action.btn-search-action:hover {
+  background: rgba(59, 130, 246, 0.35);
+  border-color: #3b82f6;
 }
 
 .btn-remove-item {
   background: rgba(239, 68, 68, 0.15);
   color: var(--danger);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: var(--radius-md);
-  width: 38px;
-  height: 38px;
+  border-radius: var(--radius-sm);
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.15s;
+  font-size: 0.85rem;
 }
 
 .btn-remove-item:hover:not(:disabled) {
@@ -829,6 +1202,16 @@ input[type="text"]:focus, select:focus, textarea:focus {
   gap: 6px;
 }
 
+.tier-item-chip .chip-image {
+  width: 26px;
+  height: 26px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.25);
+}
+
 .tier-item-chip .chip-text {
   flex: 1;
   pointer-events: none;
@@ -877,9 +1260,214 @@ input[type="text"]:focus, select:focus, textarea:focus {
   font-size: 0.85rem;
 }
 
+.tier-item-chip.readonly .chip-image {
+  width: 20px;
+  height: 20px;
+}
+
 .tier-item-chip.readonly .chip-search-btn {
   font-size: 0.68rem;
   padding: 1px 3px;
+}
+
+/* ==========================================
+   Tiermaker風 四角いアイコンカード (画像ありモード)
+   ========================================== */
+.tier-item-chip.card-mode {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 76px;
+  min-height: 94px;
+  height: auto;
+  padding: 0 !important;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #181d28;
+  border: 2px solid #3c4664;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  gap: 0 !important;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.tier-item-chip.card-mode * {
+  -webkit-user-drag: none;
+}
+
+.tier-item-chip.card-mode:hover {
+  transform: translateY(-2px);
+  border-color: #6366f1;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.tier-item-chip.card-mode:active {
+  cursor: grabbing;
+  transform: scale(0.96);
+}
+
+/* カード上部の画像ラッパー */
+.tier-item-chip.card-mode .card-thumb-wrapper {
+  width: 100%;
+  height: 64px;
+  position: relative;
+  background: #0f131c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.tier-item-chip.card-mode .card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  display: block;
+}
+
+.tier-item-chip.card-mode .card-placeholder {
+  font-size: 1.5rem;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* カード右上のGoogle画像検索リンク */
+.tier-item-chip.card-mode .card-search-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 2;
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.tier-item-chip.card-mode:hover .card-search-btn {
+  opacity: 0.85;
+}
+
+.tier-item-chip.card-mode .card-search-btn:hover {
+  opacity: 1;
+  transform: scale(1.15);
+  background: rgba(99, 102, 241, 0.8);
+}
+
+/* カード下部の名前ラベル帯 (横には広げず、縦に折り返して文字をすべて表示) */
+.tier-item-chip.card-mode .card-label-bar {
+  width: 100%;
+  min-height: 30px;
+  height: auto;
+  background: #141822;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 3px;
+  box-sizing: border-box;
+  pointer-events: none;
+  flex: 1;
+}
+
+.tier-item-chip.card-mode .card-label-bar .chip-text {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  text-align: center;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
+  width: 100%;
+  pointer-events: none;
+  line-height: 1.25;
+}
+
+/* 結果画面（readonly）でのTiermaker風カード */
+.tier-item-chip.card-mode.readonly {
+  width: 58px;
+  min-height: 74px;
+  height: auto;
+  border-radius: 6px;
+  padding: 0 !important;
+}
+
+.tier-item-chip.card-mode.readonly .card-thumb-wrapper {
+  height: 48px;
+}
+
+.tier-item-chip.card-mode.readonly .card-label-bar {
+  min-height: 26px;
+  height: auto;
+  padding: 3px 2px;
+}
+
+.tier-item-chip.card-mode.readonly .card-label-bar .chip-text {
+  font-size: 0.62rem;
+  white-space: normal;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.15;
+}
+
+.tier-item-chip.card-mode.readonly .card-search-btn {
+  display: none;
+}
+
+/* 一致度ハイライト用 (カードモード) */
+.tier-item-chip.card-mode.chip-match-exact {
+  border: 3px solid var(--success) !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+}
+
+.tier-item-chip.card-mode.chip-match-near {
+  border: 3px solid var(--warning) !important;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.tier-item-chip.card-mode.chip-match-miss {
+  border: 2px solid #374151 !important;
+  opacity: 0.65;
+}
+
+/* カードモード時のスロット・プールのゆったりレイアウト (上揃えで綺麗に整列) */
+.item-pool.card-mode {
+  min-height: 108px;
+  padding: 10px;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.tier-table-container.card-mode .tier-slot {
+  min-height: 106px;
+  padding: 6px 10px;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.readonly-tier-table.card-mode .tier-slot {
+  min-height: 84px;
+  padding: 4px 8px;
+  gap: 6px;
+  align-items: flex-start;
 }
 
 /* 一致度ハイライト用チップ */

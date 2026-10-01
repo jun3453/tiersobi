@@ -2,6 +2,7 @@ import { HostPeerManager, GuestPeerManager } from './p2p.js';
 import { TierBoard, createComparisonGrid } from './tier-board.js';
 import { calculatePlayerScore, buildItemToRankMap } from './scoring.js';
 import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20261001_search_prefix';
+import { fetchItemImage, openImageSearchWindow } from './image-fetcher.js';
 
 // DOM要素
 const screens = {
@@ -44,6 +45,10 @@ const themeInputsContainer = document.getElementById('theme-inputs-container');
 const inputMyTheme = document.getElementById('input-my-theme');
 const inputSearchPrefix = document.getElementById('input-search-prefix');
 const btnRandomExample = document.getElementById('btn-random-example');
+const radioThemeImageModes = document.querySelectorAll('input[name="theme-image-mode"]');
+const imageModeDescText = document.getElementById('image-mode-desc-text');
+const imageModeItemHint = document.getElementById('image-mode-item-hint');
+const btnFetchAllImages = document.getElementById('btn-fetch-all-images');
 const itemInputsList = document.getElementById('item-inputs-list');
 const btnAddItemField = document.getElementById('btn-add-item-field');
 const btnToggleReady = document.getElementById('btn-toggle-ready');
@@ -51,6 +56,65 @@ const btnToggleBulkInput = document.getElementById('btn-toggle-bulk-input');
 const bulkInputContainer = document.getElementById('bulk-input-container');
 const textareaBulkItems = document.getElementById('textarea-bulk-items');
 const btnApplyBulkItems = document.getElementById('btn-apply-bulk-items');
+
+// アイコン表示モード (文字のみ / 画像あり) のUI切り替え
+const imageModeControls = document.getElementById('image-mode-controls');
+
+function setImageModeUI(mode) {
+  const isImage = mode === 'image';
+  if (themeInputsContainer) {
+    if (isImage) {
+      themeInputsContainer.classList.add('is-image-mode');
+    } else {
+      themeInputsContainer.classList.remove('is-image-mode');
+    }
+  }
+
+  radioThemeImageModes.forEach(radio => {
+    const parentLabel = radio.closest('.mode-pill-btn');
+    if (parentLabel) {
+      if (radio.value === mode) {
+        parentLabel.classList.add('active');
+        radio.checked = true;
+      } else {
+        parentLabel.classList.remove('active');
+      }
+    }
+  });
+
+  if (imageModeDescText) {
+    imageModeDescText.textContent = isImage
+      ? '画像ありモード: Tiermaker風の四角いカード（画像＋名前）で表示されます。'
+      : '通常モード: チップにアイテム名がテキストで表示されます。';
+  }
+
+  if (imageModeControls) {
+    imageModeControls.style.display = isImage ? 'block' : 'none';
+  }
+  if (btnFetchAllImages) {
+    btnFetchAllImages.style.display = isImage ? 'inline-flex' : 'none';
+  }
+  if (imageModeItemHint) {
+    imageModeItemHint.style.display = isImage ? 'block' : 'none';
+  }
+}
+
+radioThemeImageModes.forEach(radio => {
+  radio.addEventListener('change', (e) => {
+    setImageModeUI(e.target.value);
+  });
+});
+
+document.querySelectorAll('.mode-pill-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const radio = btn.querySelector('input[type="radio"]');
+    if (!radio || radio.disabled || isReady) return;
+    if (!radio.checked) {
+      radio.checked = true;
+      setImageModeUI(radio.value);
+    }
+  });
+});
 
 // プレイ画面
 const playingRoundBadge = document.getElementById('playing-round-badge');
@@ -166,33 +230,139 @@ function updateConnectionBadge(status, text) {
 // ==========================================
 // 動的アイテム入力フォームの制御
 // ==========================================
-function renderItemInputRows(initialValues = []) {
+function renderItemInputRows(initialValues = [], initialImages = {}) {
   itemInputsList.innerHTML = '';
   const count = Math.max(initialValues.length, MIN_ITEMS);
 
   for (let i = 0; i < count; i++) {
-    addItemInputRow(initialValues[i] || '');
+    const val = initialValues[i] || '';
+    const imgUrl = (initialImages && initialImages[val]) || '';
+    addItemInputRow(val, imgUrl);
   }
   updateAddButtonState();
 }
 
-function addItemInputRow(value = '') {
+function addItemInputRow(value = '', imageUrl = '') {
   const currentCount = itemInputsList.children.length;
   if (currentCount >= MAX_ITEMS) return;
 
   const row = document.createElement('div');
   row.className = 'item-input-row';
+  row.dataset.imageUrl = imageUrl || '';
 
   const label = document.createElement('span');
   label.className = 'item-index-label';
   label.textContent = `#${currentCount + 1}`;
 
+  // サムネイル画像プレビュー枠
+  const thumbBox = document.createElement('div');
+  thumbBox.className = `item-thumb-box${imageUrl ? ' has-img' : ''}`;
+  thumbBox.title = 'クリックで画像URL入力 / ドラッグ＆ドロップで画像設定';
+
+  const updateThumbUI = (url) => {
+    row.dataset.imageUrl = url || '';
+    thumbBox.innerHTML = '';
+    if (url) {
+      thumbBox.classList.add('has-img');
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.referrerPolicy = 'no-referrer';
+      img.onerror = () => {
+        showToast('画像の読み込みに失敗しました（URLをご確認ください）', 'info');
+        updateThumbUI('');
+      };
+      thumbBox.appendChild(img);
+
+      const clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.className = 'btn-thumb-clear';
+      clearBtn.innerHTML = '✕';
+      clearBtn.title = '画像を削除';
+      clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        updateThumbUI('');
+      });
+      thumbBox.appendChild(clearBtn);
+    } else {
+      thumbBox.classList.remove('has-img');
+      const placeholder = document.createElement('span');
+      placeholder.className = 'thumb-icon-placeholder';
+      placeholder.textContent = '🖼️';
+      thumbBox.appendChild(placeholder);
+    }
+  };
+  updateThumbUI(imageUrl);
+
+  // クリックで画像URL手動入力
+  thumbBox.addEventListener('click', () => {
+    const current = row.dataset.imageUrl || '';
+    const newUrl = prompt('画像のURLを入力してください（空欄にすると画像を削除）:', current);
+    if (newUrl !== null) {
+      updateThumbUI(newUrl.trim());
+    }
+  });
+
+  // ドラッグ＆ドロップ対応
+  thumbBox.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    thumbBox.classList.add('drag-over');
+  });
+  thumbBox.addEventListener('dragleave', () => {
+    thumbBox.classList.remove('drag-over');
+  });
+  thumbBox.addEventListener('drop', (e) => {
+    e.preventDefault();
+    thumbBox.classList.remove('drag-over');
+
+    const html = e.dataTransfer.getData('text/html');
+    let droppedUrl = '';
+    if (html) {
+      const match = html.match(/src=["'](.*?)["']/i);
+      if (match && match[1]) {
+        droppedUrl = match[1];
+      }
+    }
+    if (!droppedUrl) {
+      droppedUrl = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('URL');
+    }
+    if (droppedUrl && droppedUrl.startsWith('http')) {
+      updateThumbUI(droppedUrl.trim());
+      showToast('画像をドロップで設定しました！', 'success');
+    }
+  });
+
   const input = document.createElement('input');
   input.type = 'text';
+  input.className = 'item-name-input';
   input.placeholder = `アイテム ${currentCount + 1}`;
   input.value = value;
-  input.maxLength = 20;
+  input.maxLength = 30;
 
+  // 操作ボタングループ
+  const actionsGroup = document.createElement('div');
+  actionsGroup.className = 'item-row-actions';
+
+  // 🔍 Google画像検索ボタン
+  const searchBtn = document.createElement('button');
+  searchBtn.type = 'button';
+  searchBtn.className = 'btn-row-action btn-search-action';
+  searchBtn.title = 'Google画像検索を開く';
+  searchBtn.innerHTML = '🔍';
+  searchBtn.addEventListener('click', () => {
+    const itemName = input.value.trim();
+    const prefix = (inputSearchPrefix ? inputSearchPrefix.value.trim() : '');
+    const query = prefix ? `${prefix} ${itemName}` : itemName;
+    if (!itemName) {
+      showToast('アイテム名を入力してから検索してください', 'info');
+      input.focus();
+      return;
+    }
+    openImageSearchWindow(query);
+  });
+
+  // ✕ 削除ボタン
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'btn-remove-item';
@@ -208,9 +378,13 @@ function addItemInputRow(value = '') {
     }
   });
 
+  actionsGroup.appendChild(searchBtn);
+  actionsGroup.appendChild(removeBtn);
+
   row.appendChild(label);
+  row.appendChild(thumbBox);
   row.appendChild(input);
-  row.appendChild(removeBtn);
+  row.appendChild(actionsGroup);
   itemInputsList.appendChild(row);
 
   renumberItemRows();
@@ -241,11 +415,84 @@ btnAddItemField.addEventListener('click', () => {
   addItemInputRow('');
 });
 
+// ⚡ Wikipediaから全アイテムの画像を一括自動取得
+if (btnFetchAllImages) {
+  btnFetchAllImages.addEventListener('click', async () => {
+    const rows = itemInputsList.children;
+    const prefix = inputSearchPrefix ? inputSearchPrefix.value.trim() : '';
+    const itemsToFetch = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const input = rows[i].querySelector('.item-name-input') || rows[i].querySelector('input');
+      const val = input ? input.value.trim() : '';
+      if (val) {
+        itemsToFetch.push({ index: i, text: val });
+      }
+    }
+
+    if (itemsToFetch.length === 0) {
+      showToast('まずはアイテム名を入力してください', 'info');
+      return;
+    }
+
+    btnFetchAllImages.disabled = true;
+    const originalText = btnFetchAllImages.textContent;
+    btnFetchAllImages.textContent = `⏳ 取得中 (0/${itemsToFetch.length})...`;
+
+    let successCount = 0;
+    for (let idx = 0; idx < itemsToFetch.length; idx++) {
+      const { index, text } = itemsToFetch[idx];
+      btnFetchAllImages.textContent = `⏳ 取得中 (${idx + 1}/${itemsToFetch.length})...`;
+
+      try {
+        const url = await fetchItemImage(text, prefix);
+        if (url) {
+          const row = rows[index];
+          if (row) {
+            row.dataset.imageUrl = url;
+            const thumbBox = row.querySelector('.item-thumb-box');
+            if (thumbBox) {
+              thumbBox.innerHTML = '';
+              thumbBox.classList.add('has-img');
+              const img = document.createElement('img');
+              img.src = url;
+              img.alt = '';
+              img.loading = 'lazy';
+              img.referrerPolicy = 'no-referrer';
+              thumbBox.appendChild(img);
+
+              const clearBtn = document.createElement('button');
+              clearBtn.type = 'button';
+              clearBtn.className = 'btn-thumb-clear';
+              clearBtn.innerHTML = '✕';
+              clearBtn.title = '画像を削除';
+              clearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                row.dataset.imageUrl = '';
+                thumbBox.innerHTML = '<span class="thumb-icon-placeholder">🖼️</span>';
+                thumbBox.classList.remove('has-img');
+              });
+              thumbBox.appendChild(clearBtn);
+            }
+          }
+          successCount++;
+        }
+      } catch (err) {
+        console.warn('[ImageFetcher] 自動取得エラー:', text, err);
+      }
+    }
+
+    btnFetchAllImages.disabled = false;
+    btnFetchAllImages.textContent = originalText;
+    showToast(`⚡ ${itemsToFetch.length}個中 ${successCount}個 の画像を自動取得しました！`, successCount > 0 ? 'success' : 'info');
+  });
+}
+
 // カンマ・改行での一括入力
 btnToggleBulkInput.addEventListener('click', () => {
   const isHidden = bulkInputContainer.style.display === 'none';
   bulkInputContainer.style.display = isHidden ? 'block' : 'none';
-  btnToggleBulkInput.textContent = isHidden ? '✕ 一括入力を閉じる' : '📋 カンマや改行で一括入力する';
+  btnToggleBulkInput.textContent = isHidden ? '✕ 一括入力を閉じる' : '📋 カンマや改行で一括入力';
 });
 
 btnApplyBulkItems.addEventListener('click', () => {
@@ -263,27 +510,72 @@ btnApplyBulkItems.addEventListener('click', () => {
   renderItemInputRows(clamped);
   showToast(`${clamped.length}個のアイテムを入力枠に反映しました！`, 'success');
   bulkInputContainer.style.display = 'none';
-  btnToggleBulkInput.textContent = '📋 カンマや改行で一括入力する';
+  btnToggleBulkInput.textContent = '📋 カンマや改行で一括入力';
 });
 
-// お題を出さない（スキップ）トグル
-checkboxSkipTheme.addEventListener('change', () => {
-  const isSkipped = checkboxSkipTheme.checked;
+/**
+ * お題・アイテム入力フォームのロック (Ready完了時)
+ */
+function lockThemeForm() {
+  isReady = true;
+  btnToggleReady.classList.add('is-ready');
+  btnToggleReady.textContent = '↩ Readyを解除して編集する';
+
+  inputMyTheme.disabled = true;
+  if (inputSearchPrefix) inputSearchPrefix.disabled = true;
+  if (btnRandomExample) btnRandomExample.disabled = true;
+  radioThemeImageModes.forEach(r => {
+    r.disabled = true;
+    const parent = r.closest('.mode-pill-btn');
+    if (parent) parent.classList.add('disabled');
+  });
+  if (btnFetchAllImages) btnFetchAllImages.disabled = true;
+  itemInputsList.querySelectorAll('input').forEach(i => i.disabled = true);
+  itemInputsList.querySelectorAll('button').forEach(b => b.disabled = true);
+  btnAddItemField.disabled = true;
+  btnToggleBulkInput.disabled = true;
+  if (checkboxSkipTheme) checkboxSkipTheme.disabled = true;
+}
+
+/**
+ * お題・アイテム入力フォームのロック解除 (Ready解除時・セッション終了後のロビー復帰時)
+ */
+function unlockThemeForm() {
+  isReady = false;
+  btnToggleReady.classList.remove('is-ready');
+  btnToggleReady.disabled = false;
+  if (checkboxSkipTheme) checkboxSkipTheme.disabled = false;
+
+  const isSkipped = checkboxSkipTheme && checkboxSkipTheme.checked;
   themeInputsContainer.style.opacity = isSkipped ? '0.4' : '1';
   themeInputsContainer.style.pointerEvents = isSkipped ? 'none' : 'auto';
+
+  btnToggleReady.textContent = isSkipped ? '✅ お題スキップでReady！' : '✅ このお題でReady！';
+
   inputMyTheme.disabled = isSkipped;
   if (inputSearchPrefix) inputSearchPrefix.disabled = isSkipped;
   if (btnRandomExample) btnRandomExample.disabled = isSkipped;
+  radioThemeImageModes.forEach(r => {
+    r.disabled = isSkipped;
+    const parent = r.closest('.mode-pill-btn');
+    if (parent) {
+      if (isSkipped) parent.classList.add('disabled');
+      else parent.classList.remove('disabled');
+    }
+  });
+  if (btnFetchAllImages) btnFetchAllImages.disabled = isSkipped;
   itemInputsList.querySelectorAll('input').forEach(i => i.disabled = isSkipped);
   itemInputsList.querySelectorAll('button').forEach(b => b.disabled = isSkipped);
   btnAddItemField.disabled = isSkipped;
   btnToggleBulkInput.disabled = isSkipped;
 
-  if (isSkipped) {
-    btnToggleReady.textContent = '✅ お題スキップでReady！';
-  } else {
-    btnToggleReady.textContent = '✅ このお題でReady！';
-  }
+  updateAddButtonState();
+}
+
+// お題を出さない（スキップ）トグル
+checkboxSkipTheme.addEventListener('change', () => {
+  if (isReady) return;
+  unlockThemeForm();
 });
 
 /**
@@ -328,21 +620,30 @@ function getFormThemeData() {
         theme: '',
         searchPrefix: '',
         items: [],
+        itemImages: {},
+        hasImages: false,
         isSkipped: true
       }
     };
   }
 
+  const selectedMode = document.querySelector('input[name="theme-image-mode"]:checked')?.value || 'text';
+  const hasImages = selectedMode === 'image';
   const theme = inputMyTheme.value.trim() || inputMyTheme.placeholder.replace(/^例:\s*/, '').trim();
   const searchPrefix = inputSearchPrefix ? inputSearchPrefix.value.trim() : '';
   const items = [];
+  const itemImages = {};
   const rows = itemInputsList.children;
 
   for (let i = 0; i < rows.length; i++) {
-    const input = rows[i].querySelector('input');
+    const input = rows[i].querySelector('.item-name-input') || rows[i].querySelector('input');
     const val = input ? input.value.trim() : '';
     if (val) {
       items.push(val);
+      const imgUrl = rows[i].dataset.imageUrl || '';
+      if (imgUrl) {
+        itemImages[val] = imgUrl;
+      }
     }
   }
 
@@ -357,7 +658,17 @@ function getFormThemeData() {
     return { valid: false, error: 'アイテム名が重複しています。' };
   }
 
-  return { valid: true, themeData: { theme, searchPrefix, items, isSkipped: false } };
+  return {
+    valid: true,
+    themeData: {
+      theme,
+      searchPrefix,
+      items,
+      itemImages: hasImages ? itemImages : {},
+      hasImages,
+      isSkipped: false
+    }
+  };
 }
 
 // Ready ボタンのトグル
@@ -370,14 +681,7 @@ btnToggleReady.addEventListener('click', () => {
       return;
     }
 
-    isReady = true;
-    btnToggleReady.classList.add('is-ready');
-    btnToggleReady.textContent = '↩ Readyを解除して編集する';
-    inputMyTheme.disabled = true;
-    if (inputSearchPrefix) inputSearchPrefix.disabled = true;
-    itemInputsList.querySelectorAll('input').forEach(i => i.disabled = true);
-    itemInputsList.querySelectorAll('button').forEach(b => b.disabled = true);
-    btnAddItemField.disabled = true;
+    lockThemeForm();
 
     if (currentRole === 'host') {
       hostManager.setHostReady(true, result.themeData);
@@ -388,14 +692,7 @@ btnToggleReady.addEventListener('click', () => {
     showToast('Ready完了！全員が揃うのをお待ちください。', 'success');
   } else {
     // Ready解除
-    isReady = false;
-    btnToggleReady.classList.remove('is-ready');
-    btnToggleReady.textContent = '✅ このお題でReady！';
-    inputMyTheme.disabled = false;
-    if (inputSearchPrefix) inputSearchPrefix.disabled = false;
-    itemInputsList.querySelectorAll('input').forEach(i => i.disabled = false);
-    itemInputsList.querySelectorAll('button').forEach(b => b.disabled = false);
-    updateAddButtonState();
+    unlockThemeForm();
 
     if (currentRole === 'host') {
       hostManager.setHostReady(false, null);
@@ -563,7 +860,9 @@ function startSession() {
       themeCreatorName: chosenTheme.creatorName || '運営',
       theme: chosenTheme.theme,
       searchPrefix: chosenTheme.searchPrefix || '',
-      items: chosenTheme.items
+      items: chosenTheme.items,
+      itemImages: chosenTheme.itemImages || {},
+      hasImages: Boolean(chosenTheme.hasImages)
     });
   });
 
@@ -709,7 +1008,7 @@ async function setupAndShowPlayingScreen(roundInfo) {
     });
   }
 
-  await tierBoard.init(roundInfo.items, roundInfo.searchPrefix || '');
+  await tierBoard.init(roundInfo.items, roundInfo.searchPrefix || '', roundInfo.itemImages || {}, Boolean(roundInfo.hasImages));
   switchState('playing');
 }
 
@@ -971,6 +1270,8 @@ function checkRoundSubmissionsAndReveal() {
       cumulativeScores: cumulativeScoresList,
       allTiers,
       hasOrder: roundHasOrder,
+      itemImages: currentRoundData.itemImages || {},
+      hasImages: Boolean(currentRoundData.hasImages),
       isSessionEnd
     };
 
@@ -1087,7 +1388,9 @@ function showResultScreen(payload) {
     comparisonTiersContainer.innerHTML = '';
     const hostItemMap = buildItemToRankMap(roundHostTier);
     const searchPrefix = payload.searchPrefix || (currentRoundData && currentRoundData.searchPrefix) || '';
-    const grid = createComparisonGrid(allTiers, hostItemMap, { hasOrder: isHasOrder, hostTier: roundHostTier, searchPrefix });
+    const itemImages = payload.itemImages || (currentRoundData && currentRoundData.itemImages) || {};
+    const hasImages = Boolean(payload.hasImages !== undefined ? payload.hasImages : (currentRoundData && currentRoundData.hasImages));
+    const grid = createComparisonGrid(allTiers, hostItemMap, { hasOrder: isHasOrder, hostTier: roundHostTier, searchPrefix, itemImages, hasImages });
     comparisonTiersContainer.appendChild(grid);
 
     // 3. 総合ランキング表
@@ -1134,14 +1437,7 @@ btnNextAction.addEventListener('click', () => {
   if (isSessionEnd) {
     // ロビーへ戻る
     hostManager.backToLobby();
-    isReady = false;
-    btnToggleReady.classList.remove('is-ready');
-    btnToggleReady.textContent = '✅ このお題でReady！';
-    inputMyTheme.disabled = false;
-    if (inputSearchPrefix) inputSearchPrefix.disabled = false;
-    itemInputsList.querySelectorAll('input').forEach(i => i.disabled = false);
-    itemInputsList.querySelectorAll('button').forEach(b => b.disabled = false);
-    updateAddButtonState();
+    unlockThemeForm();
     updateLobbyUIFromPlayers(hostManager.getAllPlayersList());
     switchState('lobby');
   } else {
@@ -1314,14 +1610,7 @@ btnJoinRoom.addEventListener('click', async () => {
       },
       onBackToLobby: () => {
         showToast('ロビーへ戻りました', 'info');
-        isReady = false;
-        btnToggleReady.classList.remove('is-ready');
-        btnToggleReady.textContent = '✅ このお題でReady！';
-        inputMyTheme.disabled = false;
-        if (inputSearchPrefix) inputSearchPrefix.disabled = false;
-        itemInputsList.querySelectorAll('input').forEach(i => i.disabled = false);
-        itemInputsList.querySelectorAll('button').forEach(b => b.disabled = false);
-        updateAddButtonState();
+        unlockThemeForm();
         switchState('lobby');
       },
       onHostDisconnected: () => {
@@ -1352,6 +1641,8 @@ btnStartGame.addEventListener('click', () => {
 
 // 初期化
 function main() {
+  unlockThemeForm();
+  setImageModeUI('text');
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get('room');
   if (roomId) {

@@ -1,5 +1,6 @@
 import { TIERS, TIER_COLORS } from './config.js';
 import { rankToIndex, buildItemPositionMap } from './scoring.js';
+import { openImageSearchWindow } from './image-fetcher.js';
 
 export function createSearchLink(itemText, searchPrefix = '') {
   const trimmedPrefix = (searchPrefix || '').trim();
@@ -14,14 +15,107 @@ export function createSearchLink(itemText, searchPrefix = '') {
   link.title = `「${query}」をGoogle画像検索`;
   link.setAttribute('aria-label', `「${query}」をGoogle画像検索`);
   link.dataset.itemText = trimmedItem;
+  link.dataset.query = query;
   link.textContent = '🔍';
 
-  // チップのドラッグやタップ操作の伝播を防止
+  // チップのドラッグやタップ操作の伝播を防止し、新規ウィンドウ(ポップアップ)で開く
   link.addEventListener('pointerdown', (e) => e.stopPropagation());
   link.addEventListener('mousedown', (e) => e.stopPropagation());
-  link.addEventListener('click', (e) => e.stopPropagation());
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const currentQuery = link.dataset.query || (link.title ? link.title.replace(/^「|」をGoogle画像検索$/g, '') : query);
+    openImageSearchWindow(currentQuery);
+  });
 
   return link;
+}
+
+/**
+ * Tierアイテムチップを生成
+ * cardMode=false: 今まで通りの横長テキストチップ (文字のみモード)
+ * cardMode=true: Tiermaker風 四角いアイコンカード (画像ありモード: 上が画像、下が名前)
+ */
+export function createTierItemChip(itemText, options = {}) {
+  const {
+    imageUrl = '',
+    searchPrefix = '',
+    readonly = false,
+    cardMode = false
+  } = options;
+
+  const chip = document.createElement('div');
+  chip.dataset.item = itemText;
+
+  if (!cardMode) {
+    // 【文字のみモード（今まで通り）】横長チップ
+    chip.className = `tier-item-chip${readonly ? ' readonly' : ''}`;
+    if (!readonly) chip.title = 'ドラッグまたはタップで移動';
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'chip-text';
+    textSpan.textContent = itemText;
+    chip.appendChild(textSpan);
+
+    const searchBtn = createSearchLink(itemText, searchPrefix);
+    chip.appendChild(searchBtn);
+    return chip;
+  }
+
+  // 【画像ありモード】Tiermaker風 四角いアイコンカード
+  chip.className = `tier-item-chip card-mode${readonly ? ' readonly' : ''}`;
+  if (!readonly) {
+    chip.title = `${itemText} (ドラッグまたはタップで移動)`;
+  }
+
+  // 1. 上部画像エリア
+  const thumbWrapper = document.createElement('div');
+  thumbWrapper.className = 'card-thumb-wrapper';
+
+  if (imageUrl) {
+    const img = document.createElement('img');
+    img.className = 'card-image';
+    img.src = imageUrl;
+    img.alt = itemText;
+    img.loading = 'lazy';
+    img.draggable = false;
+    img.referrerPolicy = 'no-referrer';
+    img.onerror = () => {
+      img.style.display = 'none';
+      if (!thumbWrapper.querySelector('.card-placeholder')) {
+        const ph = document.createElement('span');
+        ph.className = 'card-placeholder';
+        ph.textContent = '🖼️';
+        thumbWrapper.appendChild(ph);
+      }
+    };
+    thumbWrapper.appendChild(img);
+  } else {
+    const ph = document.createElement('span');
+    ph.className = 'card-placeholder';
+    ph.textContent = '🖼️';
+    thumbWrapper.appendChild(ph);
+  }
+
+  // 🔍 ボタン (カード右上に小さく配置)
+  const searchBtn = createSearchLink(itemText, searchPrefix);
+  searchBtn.className = 'card-search-btn';
+  thumbWrapper.appendChild(searchBtn);
+
+  // 2. 下部名前ラベル帯
+  const labelBar = document.createElement('div');
+  labelBar.className = 'card-label-bar';
+
+  const textSpan = document.createElement('span');
+  textSpan.className = 'chip-text';
+  textSpan.textContent = itemText;
+  textSpan.title = itemText;
+  labelBar.appendChild(textSpan);
+
+  chip.appendChild(thumbWrapper);
+  chip.appendChild(labelBar);
+
+  return chip;
 }
 
 export async function ensureSortable() {
@@ -45,14 +139,28 @@ export class TierBoard {
     this.isLocked = false;
     this.items = [];
     this.searchPrefix = '';
+    this.itemImages = {};
+    this.hasImages = false;
   }
 
-  async init(items, searchPrefix = '') {
+  async init(items, searchPrefix = '', itemImages = {}, hasImages = false) {
     await ensureSortable();
     this.items = [...items];
     this.searchPrefix = (searchPrefix || '').trim();
+    this.itemImages = itemImages || {};
+    this.hasImages = Boolean(hasImages);
     this.isLocked = false;
     this.destroy();
+
+    // カードモード時の親クラス付け外し
+    const tableContainer = document.querySelector('.tier-table-container');
+    if (this.hasImages) {
+      this.poolContainer.classList.add('card-mode');
+      if (tableContainer) tableContainer.classList.add('card-mode');
+    } else {
+      this.poolContainer.classList.remove('card-mode');
+      if (tableContainer) tableContainer.classList.remove('card-mode');
+    }
 
     this.poolContainer.innerHTML = '';
     for (const rank of TIERS) {
@@ -62,18 +170,13 @@ export class TierBoard {
     }
 
     this.items.forEach((itemText) => {
-      const chip = document.createElement('div');
-      chip.className = 'tier-item-chip';
-      chip.dataset.item = itemText;
-      chip.title = 'ドラッグまたはタップで移動';
-
-      const textSpan = document.createElement('span');
-      textSpan.className = 'chip-text';
-      textSpan.textContent = itemText;
-      chip.appendChild(textSpan);
-
-      const searchBtn = createSearchLink(itemText, this.searchPrefix);
-      chip.appendChild(searchBtn);
+      const imageUrl = this.itemImages[itemText] || '';
+      const chip = createTierItemChip(itemText, {
+        imageUrl,
+        searchPrefix: this.searchPrefix,
+        readonly: false,
+        cardMode: this.hasImages
+      });
 
       let touchStartTime = 0;
       chip.addEventListener('pointerdown', () => {
@@ -142,42 +245,75 @@ export class TierBoard {
   }
 
   getTierState() {
-    const state = { S: [], A: [], B: [], C: [], D: [] };
+    const result = {
+      S: [],
+      A: [],
+      B: [],
+      C: [],
+      D: []
+    };
+
     for (const rank of TIERS) {
       const container = this.tierContainers[rank];
       if (container) {
         const chips = container.querySelectorAll('.tier-item-chip');
-        chips.forEach((c) => {
-          if (c.dataset.item) state[rank].push(c.dataset.item);
+        chips.forEach((chip) => {
+          if (chip.dataset.item) {
+            result[rank].push(chip.dataset.item);
+          }
         });
       }
     }
-    return state;
+
+    return result;
   }
 
   isAllPlaced() {
-    const unplaced = this.poolContainer.querySelectorAll('.tier-item-chip').length;
-    return unplaced === 0;
+    const remainingInPool = this.poolContainer.querySelectorAll('.tier-item-chip').length;
+    return remainingInPool === 0;
   }
 
   triggerChange() {
     if (this.onChange) {
-      this.onChange(this.isAllPlaced(), this.getTierState());
+      this.onChange(this.isAllPlaced());
     }
   }
 
   setLocked(locked) {
-    this.isLocked = locked;
-    for (const s of this.sortables) {
-      s.option('disabled', locked);
+    if (locked) {
+      this.lock();
+    } else {
+      this.unlock();
     }
-    const chips = document.querySelectorAll('.tier-item-chip');
-    chips.forEach(c => {
-      if (locked) {
-        c.classList.add('locked');
-      } else {
-        c.classList.remove('locked');
-      }
+  }
+
+  lock() {
+    this.isLocked = true;
+    for (const s of this.sortables) {
+      try {
+        s.option('disabled', true);
+      } catch (e) {}
+    }
+    const allContainers = [this.poolContainer, ...Object.values(this.tierContainers)];
+    allContainers.forEach((c) => {
+      if (!c) return;
+      const chips = c.querySelectorAll('.tier-item-chip');
+      chips.forEach((chip) => chip.classList.add('locked'));
+    });
+  }
+
+  unlock() {
+    this.isLocked = false;
+    for (const s of this.sortables) {
+      try {
+        s.option('disabled', false);
+      } catch (e) {}
+    }
+    const allContainers = [this.poolContainer, ...Object.values(this.tierContainers)];
+    allContainers.forEach((c) => {
+      if (!c) return;
+      const chips = c.querySelectorAll('.tier-item-chip');
+      chips.forEach((chip) => chip.classList.remove('locked'));
     });
   }
 
@@ -192,6 +328,7 @@ export class TierBoard {
         const trimmedItem = itemText.trim();
         const query = this.searchPrefix ? `${this.searchPrefix} ${trimmedItem}` : trimmedItem;
         btn.href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+        btn.dataset.query = query;
         btn.title = `「${query}」をGoogle画像検索`;
         btn.setAttribute('aria-label', `「${query}」をGoogle画像検索`);
       });
@@ -215,14 +352,16 @@ export function createReadonlyTierTable(tierState, options = {}) {
     hostTier = null,
     hasOrder = false,
     isHost = false,
-    searchPrefix = ''
+    searchPrefix = '',
+    itemImages = {},
+    hasImages = false
   } = options;
   const isOrderRule = Boolean(hasOrder);
   const hostPosMap = providedHostPosMap || (hostTier ? buildItemPositionMap(hostTier) : null);
   const safeTier = (tierState && typeof tierState === 'object') ? tierState : { S: [], A: [], B: [], C: [], D: [] };
 
   const table = document.createElement('div');
-  table.className = 'readonly-tier-table';
+  table.className = `readonly-tier-table${hasImages ? ' card-mode' : ''}`;
 
   for (const rank of TIERS) {
     const row = document.createElement('div');
@@ -246,17 +385,13 @@ export function createReadonlyTierTable(tierState, options = {}) {
       slot.appendChild(emptyNote);
     } else {
       items.forEach((itemText, itemIdx) => {
-        const chip = document.createElement('div');
-        chip.className = 'tier-item-chip readonly';
-        chip.dataset.item = itemText;
-
-        const textSpan = document.createElement('span');
-        textSpan.className = 'chip-text';
-        textSpan.textContent = itemText;
-        chip.appendChild(textSpan);
-
-        const searchBtn = createSearchLink(itemText, searchPrefix);
-        chip.appendChild(searchBtn);
+        const imageUrl = (itemImages && itemImages[itemText]) || '';
+        const chip = createTierItemChip(itemText, {
+          imageUrl,
+          searchPrefix,
+          readonly: true,
+          cardMode: Boolean(hasImages)
+        });
 
         if (!isHost) {
           if (isOrderRule) {
@@ -267,15 +402,12 @@ export function createReadonlyTierTable(tierState, options = {}) {
               const orderDiff = Math.abs(itemIdx - hostPos.index);
 
               if (rankDiff === 0 && orderDiff === 0) {
-                // ランクも順序も完全一致のみ緑枠 (+20)
                 chip.classList.add('chip-match-exact');
                 chip.title = '完全一致 (ランク・順序一致 +20)';
               } else if (rankDiff === 0 && orderDiff > 0) {
-                // ランクは同じだが順序ズレは必ず黄枠 (+10)
                 chip.classList.add('chip-match-near');
                 chip.title = `順序ズレ (正解は${hostPos.index + 1}番目 +10)`;
               } else if (rankDiff === 1) {
-                // 1ランクズレ (+5)
                 chip.classList.add('chip-match-near');
                 chip.title = `1ランクズレ (正解: ${hostPos.rank} +5)`;
               } else {
@@ -283,7 +415,6 @@ export function createReadonlyTierTable(tierState, options = {}) {
                 chip.title = `ズレ (正解: ${hostPos.rank}の${hostPos.index + 1}番目)`;
               }
             } else if (hostItemToRankMap && hostItemToRankMap[itemText]) {
-              // hostPosが見つからないフォールバック時も左右差ありなら順序不問完全一致にはしない
               const hostRank = hostItemToRankMap[itemText];
               const diff = Math.abs(rankToIndex(rank) - rankToIndex(hostRank));
               if (diff === 0 || diff === 1) {
@@ -329,6 +460,8 @@ export function createComparisonGrid(allTiers, hostItemToRankMap, options = {}) 
   const hasOrder = Boolean(options.hasOrder);
   const hostTier = options.hostTier || null;
   const hostPosMap = hostTier ? buildItemPositionMap(hostTier) : null;
+  const itemImages = options.itemImages || {};
+  const hasImages = Boolean(options.hasImages);
   const container = document.createElement('div');
   container.className = 'comparison-grid';
 
@@ -351,7 +484,9 @@ export function createComparisonGrid(allTiers, hostItemToRankMap, options = {}) 
       hostTier,
       hasOrder,
       isHost: Boolean(entry.isRoundHost),
-      searchPrefix: options.searchPrefix || ''
+      searchPrefix: options.searchPrefix || '',
+      itemImages,
+      hasImages
     });
 
     card.appendChild(header);
