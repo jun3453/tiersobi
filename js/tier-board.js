@@ -1,14 +1,19 @@
 import { TIERS, TIER_COLORS } from './config.js';
 import { rankToIndex, buildItemPositionMap } from './scoring.js';
 
-export function createSearchLink(itemText) {
+export function createSearchLink(itemText, searchPrefix = '') {
+  const trimmedPrefix = (searchPrefix || '').trim();
+  const trimmedItem = (itemText || '').trim();
+  const query = trimmedPrefix ? `${trimmedPrefix} ${trimmedItem}` : trimmedItem;
+
   const link = document.createElement('a');
   link.className = 'chip-search-btn';
-  link.href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(itemText)}`;
+  link.href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
-  link.title = `「${itemText}」をGoogle画像検索`;
-  link.setAttribute('aria-label', `「${itemText}」をGoogle画像検索`);
+  link.title = `「${query}」をGoogle画像検索`;
+  link.setAttribute('aria-label', `「${query}」をGoogle画像検索`);
+  link.dataset.itemText = trimmedItem;
   link.textContent = '🔍';
 
   // チップのドラッグやタップ操作の伝播を防止
@@ -39,11 +44,13 @@ export class TierBoard {
     this.sortables = [];
     this.isLocked = false;
     this.items = [];
+    this.searchPrefix = '';
   }
 
-  async init(items) {
+  async init(items, searchPrefix = '') {
     await ensureSortable();
     this.items = [...items];
+    this.searchPrefix = (searchPrefix || '').trim();
     this.isLocked = false;
     this.destroy();
 
@@ -65,7 +72,7 @@ export class TierBoard {
       textSpan.textContent = itemText;
       chip.appendChild(textSpan);
 
-      const searchBtn = createSearchLink(itemText);
+      const searchBtn = createSearchLink(itemText, this.searchPrefix);
       chip.appendChild(searchBtn);
 
       let touchStartTime = 0;
@@ -174,6 +181,23 @@ export class TierBoard {
     });
   }
 
+  setSearchPrefix(newPrefix) {
+    this.searchPrefix = (newPrefix || '').trim();
+    const allContainers = [this.poolContainer, ...Object.values(this.tierContainers)];
+    allContainers.forEach((container) => {
+      if (!container) return;
+      const searchBtns = container.querySelectorAll('.chip-search-btn');
+      searchBtns.forEach((btn) => {
+        const itemText = btn.dataset.itemText || (btn.parentElement ? btn.parentElement.dataset.item : '') || '';
+        const trimmedItem = itemText.trim();
+        const query = this.searchPrefix ? `${this.searchPrefix} ${trimmedItem}` : trimmedItem;
+        btn.href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+        btn.title = `「${query}」をGoogle画像検索`;
+        btn.setAttribute('aria-label', `「${query}」をGoogle画像検索`);
+      });
+    });
+  }
+
   destroy() {
     for (const s of this.sortables) {
       try {
@@ -185,7 +209,14 @@ export class TierBoard {
 }
 
 export function createReadonlyTierTable(tierState, options = {}) {
-  const { hostItemToRankMap = null, hostPosMap: providedHostPosMap = null, hostTier = null, hasOrder = false, isHost = false } = options;
+  const {
+    hostItemToRankMap = null,
+    hostPosMap: providedHostPosMap = null,
+    hostTier = null,
+    hasOrder = false,
+    isHost = false,
+    searchPrefix = ''
+  } = options;
   const isOrderRule = Boolean(hasOrder);
   const hostPosMap = providedHostPosMap || (hostTier ? buildItemPositionMap(hostTier) : null);
   const safeTier = (tierState && typeof tierState === 'object') ? tierState : { S: [], A: [], B: [], C: [], D: [] };
@@ -224,7 +255,7 @@ export function createReadonlyTierTable(tierState, options = {}) {
         textSpan.textContent = itemText;
         chip.appendChild(textSpan);
 
-        const searchBtn = createSearchLink(itemText);
+        const searchBtn = createSearchLink(itemText, searchPrefix);
         chip.appendChild(searchBtn);
 
         if (!isHost) {
@@ -319,7 +350,8 @@ export function createComparisonGrid(allTiers, hostItemToRankMap, options = {}) 
       hostPosMap,
       hostTier,
       hasOrder,
-      isHost: Boolean(entry.isRoundHost)
+      isHost: Boolean(entry.isRoundHost),
+      searchPrefix: options.searchPrefix || ''
     });
 
     card.appendChild(header);

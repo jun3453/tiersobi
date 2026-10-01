@@ -1,7 +1,7 @@
 import { HostPeerManager, GuestPeerManager } from './p2p.js';
 import { TierBoard, createComparisonGrid } from './tier-board.js';
 import { calculatePlayerScore, buildItemToRankMap } from './scoring.js';
-import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20260930_110themes';
+import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20261001_search_prefix';
 
 // DOM要素
 const screens = {
@@ -42,6 +42,7 @@ const hostStartHint = document.getElementById('host-start-hint');
 const checkboxSkipTheme = document.getElementById('checkbox-skip-theme');
 const themeInputsContainer = document.getElementById('theme-inputs-container');
 const inputMyTheme = document.getElementById('input-my-theme');
+const inputSearchPrefix = document.getElementById('input-search-prefix');
 const btnRandomExample = document.getElementById('btn-random-example');
 const itemInputsList = document.getElementById('item-inputs-list');
 const btnAddItemField = document.getElementById('btn-add-item-field');
@@ -56,6 +57,10 @@ const playingRoundBadge = document.getElementById('playing-round-badge');
 const playingHostBadge = document.getElementById('playing-host-badge');
 const playingThemeTitle = document.getElementById('playing-theme-title');
 const playingThemeCreator = document.getElementById('playing-theme-creator');
+const playingSearchPrefixBadge = document.getElementById('playing-search-prefix-badge');
+const playingSearchPrefixText = document.getElementById('playing-search-prefix-text');
+const btnEditSearchPrefix = document.getElementById('btn-edit-search-prefix');
+const btnAddSearchPrefix = document.getElementById('btn-add-search-prefix');
 const playingRoleBanner = document.getElementById('playing-role-banner');
 const playingRoleMainText = document.getElementById('playing-role-main-text');
 const playingRoleSubText = document.getElementById('playing-role-sub-text');
@@ -267,6 +272,7 @@ checkboxSkipTheme.addEventListener('change', () => {
   themeInputsContainer.style.opacity = isSkipped ? '0.4' : '1';
   themeInputsContainer.style.pointerEvents = isSkipped ? 'none' : 'auto';
   inputMyTheme.disabled = isSkipped;
+  if (inputSearchPrefix) inputSearchPrefix.disabled = isSkipped;
   if (btnRandomExample) btnRandomExample.disabled = isSkipped;
   itemInputsList.querySelectorAll('input').forEach(i => i.disabled = isSkipped);
   itemInputsList.querySelectorAll('button').forEach(b => b.disabled = isSkipped);
@@ -292,10 +298,14 @@ function setupExampleForm(notify = false) {
 
   inputMyTheme.value = example.theme;
   inputMyTheme.placeholder = `例: ${example.theme}`;
+  if (inputSearchPrefix) {
+    inputSearchPrefix.value = example.searchPrefix || '';
+  }
   renderItemInputRows(example.items);
 
   if (notify) {
-    showToast(`お題「${example.theme}」をセットしました！ (全${THEME_EXAMPLES.length}種)`, 'info');
+    const prefixMsg = example.searchPrefix ? ` (検索KW: ${example.searchPrefix})` : '';
+    showToast(`お題「${example.theme}」をセットしました！${prefixMsg} (全${THEME_EXAMPLES.length}種)`, 'info');
   }
 }
 
@@ -316,6 +326,7 @@ function getFormThemeData() {
       valid: true,
       themeData: {
         theme: '',
+        searchPrefix: '',
         items: [],
         isSkipped: true
       }
@@ -323,6 +334,7 @@ function getFormThemeData() {
   }
 
   const theme = inputMyTheme.value.trim() || inputMyTheme.placeholder.replace(/^例:\s*/, '').trim();
+  const searchPrefix = inputSearchPrefix ? inputSearchPrefix.value.trim() : '';
   const items = [];
   const rows = itemInputsList.children;
 
@@ -345,7 +357,7 @@ function getFormThemeData() {
     return { valid: false, error: 'アイテム名が重複しています。' };
   }
 
-  return { valid: true, themeData: { theme, items, isSkipped: false } };
+  return { valid: true, themeData: { theme, searchPrefix, items, isSkipped: false } };
 }
 
 // Ready ボタンのトグル
@@ -362,6 +374,7 @@ btnToggleReady.addEventListener('click', () => {
     btnToggleReady.classList.add('is-ready');
     btnToggleReady.textContent = '↩ Readyを解除して編集する';
     inputMyTheme.disabled = true;
+    if (inputSearchPrefix) inputSearchPrefix.disabled = true;
     itemInputsList.querySelectorAll('input').forEach(i => i.disabled = true);
     itemInputsList.querySelectorAll('button').forEach(b => b.disabled = true);
     btnAddItemField.disabled = true;
@@ -379,6 +392,7 @@ btnToggleReady.addEventListener('click', () => {
     btnToggleReady.classList.remove('is-ready');
     btnToggleReady.textContent = '✅ このお題でReady！';
     inputMyTheme.disabled = false;
+    if (inputSearchPrefix) inputSearchPrefix.disabled = false;
     itemInputsList.querySelectorAll('input').forEach(i => i.disabled = false);
     itemInputsList.querySelectorAll('button').forEach(b => b.disabled = false);
     updateAddButtonState();
@@ -513,6 +527,7 @@ function startSession() {
     creatorId: 'preset',
     creatorName: '運営',
     theme: ex.theme,
+    searchPrefix: ex.searchPrefix || '',
     items: ex.items
   }));
 
@@ -547,6 +562,7 @@ function startSession() {
       themeCreatorId: chosenTheme.creatorId,
       themeCreatorName: chosenTheme.creatorName || '運営',
       theme: chosenTheme.theme,
+      searchPrefix: chosenTheme.searchPrefix || '',
       items: chosenTheme.items
     });
   });
@@ -660,6 +676,9 @@ async function setupAndShowPlayingScreen(roundInfo) {
     updateGuesserRuleDisplay(false);
   }
 
+  // 検索プレフィックス表示の更新
+  updatePlayingSearchPrefixUI(roundInfo.searchPrefix || '');
+
   // UIリセット
   btnSubmitTier.disabled = true;
   btnSubmitTier.style.display = 'inline-flex';
@@ -690,8 +709,52 @@ async function setupAndShowPlayingScreen(roundInfo) {
     });
   }
 
-  await tierBoard.init(roundInfo.items);
+  await tierBoard.init(roundInfo.items, roundInfo.searchPrefix || '');
   switchState('playing');
+}
+
+/**
+ * プレイ画面の検索キーワードバッジ更新
+ */
+function updatePlayingSearchPrefixUI(prefix) {
+  const trimmed = (prefix || '').trim();
+  if (trimmed) {
+    if (playingSearchPrefixBadge) playingSearchPrefixBadge.style.display = 'inline-flex';
+    if (playingSearchPrefixText) playingSearchPrefixText.textContent = trimmed;
+    if (btnAddSearchPrefix) btnAddSearchPrefix.style.display = 'none';
+  } else {
+    if (playingSearchPrefixBadge) playingSearchPrefixBadge.style.display = 'none';
+    if (btnAddSearchPrefix) btnAddSearchPrefix.style.display = 'inline-flex';
+  }
+}
+
+/**
+ * プレイ中の検索キーワード変更・設定ダイアログ
+ */
+function handleEditSearchPrefix() {
+  const currentVal = (currentRoundData && currentRoundData.searchPrefix) || '';
+  const inputVal = window.prompt(
+    '画像検索用のプレフィックス（接頭辞）を入力してください。\n（例: ポケモン、ドラゴンボール など / 空欄でプレフィックス解除）',
+    currentVal
+  );
+  if (inputVal === null) return; // キャンセル
+
+  const trimmed = inputVal.trim();
+  if (currentRoundData) {
+    currentRoundData.searchPrefix = trimmed;
+  }
+  if (tierBoard) {
+    tierBoard.setSearchPrefix(trimmed);
+  }
+  updatePlayingSearchPrefixUI(trimmed);
+  showToast(trimmed ? `検索キーワードを「${trimmed}」に設定しました` : '検索キーワードを解除しました', 'info');
+}
+
+if (btnEditSearchPrefix) {
+  btnEditSearchPrefix.addEventListener('click', handleEditSearchPrefix);
+}
+if (btnAddSearchPrefix) {
+  btnAddSearchPrefix.addEventListener('click', handleEditSearchPrefix);
 }
 
 // Tier提出ボタン
@@ -901,6 +964,8 @@ function checkRoundSubmissionsAndReveal() {
       roundHostTier,
       themeCreatorId: currentRoundData.themeCreatorId,
       themeCreatorName: currentRoundData.themeCreatorName,
+      theme: currentRoundData.theme,
+      searchPrefix: currentRoundData.searchPrefix || '',
       hostBonus,
       scores: roundScores,
       cumulativeScores: cumulativeScoresList,
@@ -1021,7 +1086,8 @@ function showResultScreen(payload) {
     // 2. ★みんなのTier表見比べエリア
     comparisonTiersContainer.innerHTML = '';
     const hostItemMap = buildItemToRankMap(roundHostTier);
-    const grid = createComparisonGrid(allTiers, hostItemMap, { hasOrder: isHasOrder, hostTier: roundHostTier });
+    const searchPrefix = payload.searchPrefix || (currentRoundData && currentRoundData.searchPrefix) || '';
+    const grid = createComparisonGrid(allTiers, hostItemMap, { hasOrder: isHasOrder, hostTier: roundHostTier, searchPrefix });
     comparisonTiersContainer.appendChild(grid);
 
     // 3. 総合ランキング表
@@ -1072,6 +1138,7 @@ btnNextAction.addEventListener('click', () => {
     btnToggleReady.classList.remove('is-ready');
     btnToggleReady.textContent = '✅ このお題でReady！';
     inputMyTheme.disabled = false;
+    if (inputSearchPrefix) inputSearchPrefix.disabled = false;
     itemInputsList.querySelectorAll('input').forEach(i => i.disabled = false);
     itemInputsList.querySelectorAll('button').forEach(b => b.disabled = false);
     updateAddButtonState();
@@ -1251,6 +1318,7 @@ btnJoinRoom.addEventListener('click', async () => {
         btnToggleReady.classList.remove('is-ready');
         btnToggleReady.textContent = '✅ このお題でReady！';
         inputMyTheme.disabled = false;
+        if (inputSearchPrefix) inputSearchPrefix.disabled = false;
         itemInputsList.querySelectorAll('input').forEach(i => i.disabled = false);
         itemInputsList.querySelectorAll('button').forEach(b => b.disabled = false);
         updateAddButtonState();

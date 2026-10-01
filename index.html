@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>tiersobi</title>
-  <link rel="stylesheet" href="css/style.css?v=20260929d">
+  <link rel="stylesheet" href="css/style.css?v=20261001_search_prefix">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
@@ -109,6 +109,17 @@
             <input type="text" id="input-my-theme" placeholder="例: カレーに入れるなら？" maxlength="50">
           </div>
 
+          <!-- 画像検索用プレフィックス入力枠 -->
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label for="input-search-prefix" style="margin-bottom: 0;">🔍 画像検索用プレフィックス (任意)</label>
+            </div>
+            <input type="text" id="input-search-prefix" placeholder="例: ポケモン、ドラゴンボール など" maxlength="40">
+            <p class="hint-text" style="margin-top: 4px; font-size: 0.8rem;">
+              チップ横の 🔍 を押したとき「プレフィックス ＋ アイテム名」で画像検索されます（作品名などの指定に便利）。
+            </p>
+          </div>
+
           <!-- カンマ・改行での一括入力エリア -->
           <div class="bulk-input-section" style="margin-bottom: 12px;">
             <button type="button" id="btn-toggle-bulk-input" class="btn-text-link">📋 カンマや改行で一括入力する</button>
@@ -162,7 +173,17 @@
         <div class="theme-display-banner">
           <div class="current-theme-label">今回のお題</div>
           <div id="playing-theme-title" class="current-theme-title">カレーに入れるなら？</div>
-          <div id="playing-theme-creator" class="current-theme-creator">💡 出題者: 運営</div>
+          <div class="theme-meta-group">
+            <div id="playing-theme-creator" class="current-theme-creator">💡 出題者: 運営</div>
+            <div id="playing-search-prefix-badge" class="current-theme-prefix-badge" style="display: none;">
+              <span class="prefix-badge-label">🔍 検索KW:</span>
+              <span id="playing-search-prefix-text" class="prefix-badge-text"></span>
+              <button type="button" id="btn-edit-search-prefix" class="btn-prefix-edit" title="画像検索キーワードを変更">✏️ 変更</button>
+            </div>
+            <button type="button" id="btn-add-search-prefix" class="btn-prefix-add" style="display: none;" title="画像検索キーワードを設定">
+              🔍 検索キーワードを追加
+            </button>
+          </div>
         </div>
 
         <!-- ★大きく目立つ役割案内バナー -->
@@ -330,6 +351,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20260930_110themes"></script>
+  <script type="module" src="js/app.js?v=20261001_search_prefix"></script>
 </body>
 </html>
