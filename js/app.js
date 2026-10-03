@@ -14,6 +14,7 @@ const screens = {
 
 const connectionIndicator = document.getElementById('connection-indicator');
 const connectionStatusText = document.getElementById('connection-status-text');
+const btnLeaveRoom = document.getElementById('btn-leave-room');
 
 // 接続関連
 const tabBtnGuest = document.getElementById('tab-btn-guest');
@@ -225,6 +226,105 @@ function updateConnectionBadge(status, text) {
   } else {
     connectionIndicator.classList.remove('connected');
   }
+}
+
+// ==========================================
+// セッション管理＆離脱防止 (beforeunload / popstate)
+// ==========================================
+let isSessionActive = false;
+
+function setSessionActive(active) {
+  isSessionActive = active;
+  if (active) {
+    try {
+      history.pushState({ tiersobiSession: true }, '');
+    } catch (e) {
+      console.warn('history.pushState error:', e);
+    }
+    if (btnLeaveRoom) btnLeaveRoom.style.display = 'inline-flex';
+  } else {
+    if (btnLeaveRoom) btnLeaveRoom.style.display = 'none';
+  }
+}
+
+/**
+ * ルームからの安全な退出処理
+ */
+function leaveSession() {
+  setSessionActive(false);
+
+  if (currentRole === 'host') {
+    if (hostManager) {
+      hostManager.destroy();
+      hostManager = null;
+    }
+    btnCreateRoom.disabled = false;
+    btnCreateRoom.style.display = 'block';
+    btnCreateRoom.textContent = '👑 ルームを開設する';
+    hostRoomInfo.style.display = 'none';
+  } else if (currentRole === 'guest') {
+    if (guestManager) {
+      guestManager.destroy();
+      guestManager = null;
+    }
+    btnJoinRoom.disabled = false;
+    btnJoinRoom.textContent = '🎮 ルームに参加する';
+  }
+
+  currentRole = null;
+  myPeerId = null;
+  myName = '';
+  isReady = false;
+  currentRoundData = null;
+  currentRoundSubmittedTiers.clear();
+  mySubmittedTier = null;
+  sessionRounds = [];
+  currentRoundIndex = 0;
+  cumulativeScoresMap.clear();
+
+  updateConnectionBadge('disconnected', '未接続');
+  unlockThemeForm();
+  switchState('connecting');
+  showToast('ルームから退出しました。', 'info');
+}
+
+// 離脱防止 (1): リロード・タブ閉じ・ブラウザ終了の防止
+window.addEventListener('beforeunload', (e) => {
+  if (isSessionActive) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
+
+// 離脱防止 (2): ブラウザの戻るボタン・スマホのスワイプ戻り防止
+window.addEventListener('popstate', (e) => {
+  if (isSessionActive) {
+    // 戻る操作でページ外に抜けてしまわないように履歴を再度積む
+    try {
+      history.pushState({ tiersobiSession: true }, '');
+    } catch (err) {}
+
+    const confirmed = window.confirm(
+      'ルームから退出しますか？\n（進行中のゲームや接続は切断されます）'
+    );
+    if (confirmed) {
+      leaveSession();
+    }
+  }
+});
+
+// ヘッダーの退出ボタンクリック
+if (btnLeaveRoom) {
+  btnLeaveRoom.addEventListener('click', () => {
+    if (!isSessionActive) return;
+    const confirmed = window.confirm(
+      'ルームから退出しますか？\n（進行中のゲームや接続は切断されます）'
+    );
+    if (confirmed) {
+      leaveSession();
+    }
+  });
 }
 
 // ==========================================
@@ -1484,6 +1584,7 @@ btnCreateRoom.addEventListener('click', async () => {
         hostRoomInfo.style.display = 'block';
         btnCreateRoom.style.display = 'none';
         updateConnectionBadge('connected', `ホスト: ${peerId.slice(0, 6)}...`);
+        setSessionActive(true);
         showToast('ルームが開設されました！', 'success');
       },
       onPlayerJoin: (peerId, playerName) => {
@@ -1584,6 +1685,7 @@ btnJoinRoom.addEventListener('click', async () => {
       onConnected: (peerId) => {
         myPeerId = peerId;
         updateConnectionBadge('connected', `接続中: ${name}`);
+        setSessionActive(true);
         showToast('ホストに接続しました！', 'success');
         hostGameControls.style.display = 'none';
         guestWaitingPanel.style.display = 'block';
@@ -1614,8 +1716,9 @@ btnJoinRoom.addEventListener('click', async () => {
         switchState('lobby');
       },
       onHostDisconnected: () => {
+        setSessionActive(false);
         alert('ホストが退出したため、接続が切断されました。');
-        window.location.reload();
+        leaveSession();
       },
       onError: (err) => {
         showToast(`通信エラー: ${err.message || err}`, 'error');

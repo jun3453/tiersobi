@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>tiersobi</title>
-  <link rel="stylesheet" href="css/style.css?v=20261001_session_reset_fix">
+  <link rel="stylesheet" href="css/style.css?v=20261003_leave_guard">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
@@ -16,9 +16,14 @@
         <span class="logo-icon">🏆</span>
         <h1 class="app-title">tiersobi</h1>
       </div>
-      <div id="connection-indicator" class="connection-badge">
-        <span class="status-dot"></span>
-        <span id="connection-status-text">未接続</span>
+      <div class="header-right">
+        <div id="connection-indicator" class="connection-badge">
+          <span class="status-dot"></span>
+          <span id="connection-status-text">未接続</span>
+        </div>
+        <button id="btn-leave-room" class="btn btn-outline-danger btn-header-leave" type="button" style="display: none;">
+          🚪 退出
+        </button>
       </div>
     </header>
 
@@ -392,6 +397,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20261001_session_reset_fix"></script>
+  <script type="module" src="js/app.js?v=20261003_leave_guard"></script>
 </body>
 </html>
