@@ -342,9 +342,9 @@ function renderItemInputRows(initialValues = [], initialImages = {}) {
   updateAddButtonState();
 }
 
-function addItemInputRow(value = '', imageUrl = '') {
+function addItemInputRow(value = '', imageUrl = '', insertAfterElement = null) {
   const currentCount = itemInputsList.children.length;
-  if (currentCount >= MAX_ITEMS) return;
+  if (currentCount >= MAX_ITEMS) return null;
 
   const row = document.createElement('div');
   row.className = 'item-input-row';
@@ -440,6 +440,43 @@ function addItemInputRow(value = '', imageUrl = '') {
   input.value = value;
   input.maxLength = 30;
 
+  // 改行(Enter)で新しい選択肢を追加してフォーカス
+  let isComposing = false;
+  let justComposed = false;
+
+  input.addEventListener('compositionstart', () => {
+    isComposing = true;
+  });
+  input.addEventListener('compositionend', () => {
+    isComposing = false;
+    justComposed = true;
+    setTimeout(() => {
+      justComposed = false;
+    }, 50);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    // 日本語入力(IME)確定時のEnterによる誤発火を防止
+    if (e.isComposing || e.keyCode === 229 || justComposed) {
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+
+      if (itemInputsList.children.length >= MAX_ITEMS) {
+        showToast(`アイテムは最大${MAX_ITEMS}個までです`, 'info');
+        return;
+      }
+
+      // 現在の行の直後に新しい入力行を追加してフォーカス
+      const newInput = addItemInputRow('', '', row);
+      if (newInput) {
+        newInput.focus();
+      }
+    }
+  });
+
   // 操作ボタングループ
   const actionsGroup = document.createElement('div');
   actionsGroup.className = 'item-row-actions';
@@ -485,10 +522,16 @@ function addItemInputRow(value = '', imageUrl = '') {
   row.appendChild(thumbBox);
   row.appendChild(input);
   row.appendChild(actionsGroup);
-  itemInputsList.appendChild(row);
+
+  if (insertAfterElement && insertAfterElement.nextSibling) {
+    itemInputsList.insertBefore(row, insertAfterElement.nextSibling);
+  } else {
+    itemInputsList.appendChild(row);
+  }
 
   renumberItemRows();
   updateAddButtonState();
+  return input;
 }
 
 function renumberItemRows() {
@@ -496,6 +539,8 @@ function renumberItemRows() {
   for (let i = 0; i < rows.length; i++) {
     const label = rows[i].querySelector('.item-index-label');
     if (label) label.textContent = `#${i + 1}`;
+    const input = rows[i].querySelector('.item-name-input');
+    if (input) input.placeholder = `アイテム ${i + 1}`;
     const removeBtn = rows[i].querySelector('.btn-remove-item');
     if (removeBtn) {
       removeBtn.disabled = rows.length <= MIN_ITEMS;
@@ -512,7 +557,10 @@ function updateAddButtonState() {
 }
 
 btnAddItemField.addEventListener('click', () => {
-  addItemInputRow('');
+  const newInput = addItemInputRow('');
+  if (newInput) {
+    newInput.focus();
+  }
 });
 
 // ⚡ Wikipediaから全アイテムの画像を一括自動取得
@@ -706,6 +754,34 @@ if (btnRandomExample) {
   btnRandomExample.addEventListener('click', () => {
     if (checkboxSkipTheme.checked) return;
     setupExampleForm(true);
+  });
+}
+
+// お題タイトル欄で改行(Enter)を押したら1つ目のアイテム欄にフォーカス
+if (inputMyTheme) {
+  let isComposingTheme = false;
+  let justComposedTheme = false;
+
+  inputMyTheme.addEventListener('compositionstart', () => {
+    isComposingTheme = true;
+  });
+  inputMyTheme.addEventListener('compositionend', () => {
+    isComposingTheme = false;
+    justComposedTheme = true;
+    setTimeout(() => {
+      justComposedTheme = false;
+    }, 50);
+  });
+
+  inputMyTheme.addEventListener('keydown', (e) => {
+    if (e.isComposing || e.keyCode === 229 || justComposedTheme) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const firstInput = itemInputsList.querySelector('.item-name-input');
+      if (firstInput) {
+        firstInput.focus();
+      }
+    }
   });
 }
 
