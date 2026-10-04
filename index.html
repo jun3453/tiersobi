@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>tiersobi</title>
-  <link rel="stylesheet" href="css/style.css?v=20261004_dramatic_reveal_v3">
+  <link rel="stylesheet" href="css/style.css?v=20261004_dramatic_reveal_v5">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
@@ -505,8 +505,8 @@
           </div>
         </div>
 
-        <!-- 累計総合スコアランキング -->
-        <div class="card">
+        <!-- 累計総合スコアランキング (最終順位発表ステージで発表するため途中画面では非表示) -->
+        <div id="card-cumulative-scores" class="card" style="display: none;">
           <div class="card-title">🏆 セッション総合ランキング</div>
           <table class="cumulative-table">
             <thead>
@@ -533,12 +533,86 @@
         </div>
       </div>
     </main>
+
+    <!-- SCREEN 5: FINAL REVEAL (最終順位ドラマチック発表フェーズ) -->
+    <main id="screen-final-reveal" class="screen">
+      <div class="reveal-stage-container final-reveal-container">
+        <!-- 演出ヘッダーカード -->
+        <div class="reveal-header-card final-header-card">
+          <div class="reveal-header-topbar">
+            <span class="round-counter-badge final-badge">🏆 FINAL STANDINGS</span>
+          </div>
+
+          <div class="reveal-host-hero">
+            <div class="reveal-host-avatar final-trophy-avatar">🏆</div>
+            <div class="reveal-host-info">
+              <div class="reveal-host-tag">総合結果発表</div>
+              <h2 class="reveal-host-name">最終総合ランキング発表</h2>
+            </div>
+          </div>
+
+          <div class="reveal-theme-box final-meta-box">
+            <span class="reveal-theme-label">セッション結果:</span>
+            <span id="final-reveal-total-rounds" class="reveal-theme-title">全ラウンド終了</span>
+            <span class="reveal-rule-badge badge-order">完全決着</span>
+          </div>
+
+          <!-- 実況・盛り上げアナウンスバナー -->
+          <div id="final-reveal-announcer-banner" class="reveal-announcer-banner waiting-step">
+            <span id="final-reveal-announcer-icon" class="announcer-icon">🥁</span>
+            <span id="final-reveal-announcer-text" class="announcer-text">最下位から順番に最終順位を発表します！</span>
+          </div>
+        </div>
+
+        <!-- 最終順位ボードカード -->
+        <div class="reveal-board-card final-standings-card">
+          <div id="final-standings-list" class="final-standings-list">
+            <!-- 順位行が動的に描画されます -->
+          </div>
+        </div>
+
+        <!-- 進行コントロールバー (ホスト用) -->
+        <div id="final-reveal-host-controls" class="reveal-controls-card">
+          <div class="reveal-controls-left">
+            <button id="btn-final-reveal-next" class="btn btn-primary btn-reveal-action" type="button">
+              ▶ 次の順位を発表
+            </button>
+          </div>
+          <div class="reveal-controls-right">
+            <button id="btn-final-reveal-skip" class="btn btn-outline-secondary btn-sm" type="button">
+              ⏩ 一括で全員発表
+            </button>
+          </div>
+        </div>
+
+        <!-- ゲスト用待機メッセージバー -->
+        <div id="final-reveal-guest-controls" class="reveal-guest-bar" style="display: none;">
+          <div class="guest-waiting-text">
+            <span>⏳ ホストが最終順位を発表しています...（発表と同時にオープンします）</span>
+          </div>
+        </div>
+
+        <!-- 全順位発表後の大きな進むボタン (完了時に出現) -->
+        <div id="final-reveal-finished-card" class="reveal-finished-card" style="display: none;">
+          <div class="finished-announcement">
+            <div class="finished-icon">👑</div>
+            <div class="finished-text" id="final-reveal-winner-text">総合優勝者が決定しました！</div>
+          </div>
+          <button id="btn-final-back-lobby" class="btn btn-success btn-block btn-lg btn-pulse" type="button">
+            🏁 セッション終了 (ロビーへ戻る) ➔
+          </button>
+        </div>
+      </div>
+
+      <!-- 紙吹雪用Canvas -->
+      <canvas id="final-confetti-canvas" class="reveal-confetti-canvas"></canvas>
+    </main>
   </div>
 
   <!-- トースト通知コンテナ -->
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20261004_dramatic_reveal_v3"></script>
+  <script type="module" src="js/app.js?v=20261004_dramatic_reveal_v5"></script>
 </body>
 </html>

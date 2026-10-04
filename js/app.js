@@ -4,6 +4,7 @@ import { calculatePlayerScore, buildItemToRankMap } from './scoring.js';
 import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20261001_search_prefix';
 import { fetchItemImage, openImageSearchWindow } from './image-fetcher.js';
 import { TierRevealManager } from './tier-reveal.js';
+import { FinalRevealManager } from './final-reveal.js';
 
 // DOM要素
 const screens = {
@@ -11,7 +12,8 @@ const screens = {
   lobby: document.getElementById('screen-lobby'),
   playing: document.getElementById('screen-playing'),
   reveal: document.getElementById('screen-reveal'),
-  result: document.getElementById('screen-result')
+  result: document.getElementById('screen-result'),
+  finalReveal: document.getElementById('screen-final-reveal')
 };
 
 const connectionIndicator = document.getElementById('connection-indicator');
@@ -190,6 +192,23 @@ const revealConfettiCanvas = document.getElementById('reveal-confetti-canvas');
 
 let tierRevealManager = null;
 
+// 最終総合順位発表画面 (SCREEN 5: FINAL REVEAL)
+const finalRevealTotalRounds = document.getElementById('final-reveal-total-rounds');
+const finalRevealAnnouncerBanner = document.getElementById('final-reveal-announcer-banner');
+const finalRevealAnnouncerIcon = document.getElementById('final-reveal-announcer-icon');
+const finalRevealAnnouncerText = document.getElementById('final-reveal-announcer-text');
+const finalStandingsList = document.getElementById('final-standings-list');
+const finalRevealHostControls = document.getElementById('final-reveal-host-controls');
+const finalRevealGuestControls = document.getElementById('final-reveal-guest-controls');
+const btnFinalRevealNext = document.getElementById('btn-final-reveal-next');
+const btnFinalRevealSkip = document.getElementById('btn-final-reveal-skip');
+const finalRevealFinishedCard = document.getElementById('final-reveal-finished-card');
+const finalRevealWinnerText = document.getElementById('final-reveal-winner-text');
+const btnFinalBackLobby = document.getElementById('btn-final-back-lobby');
+const finalConfettiCanvas = document.getElementById('final-confetti-canvas');
+
+let finalRevealManager = null;
+
 // 結果画面
 const resultRoundTitle = document.getElementById('result-round-title');
 const resultRoundSubtitle = document.getElementById('result-round-subtitle');
@@ -260,6 +279,9 @@ function showToast(message, type = 'info') {
 function switchState(stateName) {
   if (stateName !== 'reveal' && tierRevealManager) {
     tierRevealManager.cleanup();
+  }
+  if (stateName !== 'finalReveal' && finalRevealManager) {
+    finalRevealManager.cleanup();
   }
   Object.keys(screens).forEach((key) => {
     if (key === stateName) {
@@ -1772,6 +1794,58 @@ function startRevealStage(payload) {
 }
 
 // ==========================================
+// 最終総合順位ドラマチック発表ステージ (最下位から1位へめくりあがる)
+// ==========================================
+function initFinalRevealManager() {
+  if (finalRevealManager) return;
+  finalRevealManager = new FinalRevealManager({
+    container: screens.finalReveal,
+    confettiCanvas: finalConfettiCanvas,
+    onFinished: () => {
+      if (currentRole === 'host' && hostManager) {
+        hostManager.backToLobby();
+      }
+      unlockThemeForm();
+      if (hostManager) {
+        updateLobbyUIFromPlayers(hostManager.getAllPlayersList());
+      }
+      switchState('lobby');
+    },
+    onBroadcastStep: (stepData) => {
+      if (currentRole === 'host' && hostManager) {
+        hostManager.finalRevealStep(stepData);
+      }
+    }
+  });
+
+  finalRevealManager.bindElements({
+    listEl: finalStandingsList,
+    announcerBanner: finalRevealAnnouncerBanner,
+    announcerIcon: finalRevealAnnouncerIcon,
+    announcerText: finalRevealAnnouncerText,
+    hostControlsEl: finalRevealHostControls,
+    guestControlsEl: finalRevealGuestControls,
+    btnNext: btnFinalRevealNext,
+    btnSkip: btnFinalRevealSkip,
+    finishedCard: finalRevealFinishedCard,
+    btnBackLobby: btnFinalBackLobby,
+    totalRoundsEl: finalRevealTotalRounds,
+    winnerMsgEl: finalRevealWinnerText
+  });
+}
+
+function startFinalRevealStage(cumulativeScores, totalRounds) {
+  try {
+    initFinalRevealManager();
+    switchState('finalReveal');
+    finalRevealManager.initStage(cumulativeScores, totalRounds, currentRole === 'host');
+  } catch (err) {
+    console.error('最終順位発表画面の開始エラー:', err);
+    switchState('lobby');
+  }
+}
+
+// ==========================================
 // 結果発表画面
 // ==========================================
 function showResultScreen(payload) {
@@ -1925,8 +1999,8 @@ function showResultScreen(payload) {
       resultGuestWaiting.style.display = 'none';
 
       if (isSessionEnd) {
-        btnNextAction.textContent = '🔄 セッション終了 (ロビーへ戻る)';
-        btnNextAction.className = 'btn btn-primary btn-block btn-lg';
+        btnNextAction.textContent = '🏆 最終総合順位の発表へ！ ➔';
+        btnNextAction.className = 'btn btn-warning btn-block btn-lg btn-pulse';
       } else {
         btnNextAction.textContent = `次のラウンドへ進む (Round ${round + 1} / ${totalRounds}) ➔`;
         btnNextAction.className = 'btn btn-success btn-block btn-lg';
@@ -1934,6 +2008,9 @@ function showResultScreen(payload) {
     } else {
       resultHostControls.style.display = 'none';
       resultGuestWaiting.style.display = 'block';
+      resultGuestWaiting.textContent = isSessionEnd
+        ? 'ホストが最終総合順位の発表を開始するのをお待ちください...'
+        : 'ホストが次のラウンドを開始するのをお待ちください...';
     }
 
     switchState('result');
@@ -2126,17 +2203,19 @@ if (btnCompLayoutStack) {
   });
 }
 
-// 次のラウンドまたはロビーへ (ホスト操作)
+// 次のラウンドまたは最終総合順位発表へ (ホスト操作)
 btnNextAction.addEventListener('click', () => {
   if (currentRole !== 'host') return;
 
   const isSessionEnd = currentRoundIndex >= sessionRounds.length - 1;
   if (isSessionEnd) {
-    // ロビーへ戻る
-    hostManager.backToLobby();
-    unlockThemeForm();
-    updateLobbyUIFromPlayers(hostManager.getAllPlayersList());
-    switchState('lobby');
+    // 最終総合順位ドラマチック発表画面へ進む！
+    const cumulativeScores = (currentResultPayload && currentResultPayload.cumulativeScores) || [];
+    const totalRounds = (currentResultPayload && currentResultPayload.totalRounds) || sessionRounds.length;
+    if (hostManager) {
+      hostManager.startFinalReveal({ cumulativeScores, totalRounds });
+    }
+    startFinalRevealStage(cumulativeScores, totalRounds);
   } else {
     // 次のラウンドへ
     currentRoundIndex++;
@@ -2412,6 +2491,15 @@ btnJoinRoom.addEventListener('click', async () => {
           showResultScreen(currentResultPayload);
         }
       },
+      onFinalRevealStart: (payload) => {
+        showToast('🏆 最終順位発表が始まります！', 'success');
+        startFinalRevealStage(payload.cumulativeScores, payload.totalRounds);
+      },
+      onFinalRevealStep: (stepData) => {
+        if (finalRevealManager && stepData && typeof stepData.rank === 'number') {
+          finalRevealManager.syncStepFromHost(stepData.rank);
+        }
+      },
       onBackToLobby: () => {
         showToast('ロビーへ戻りました', 'info');
         unlockThemeForm();
@@ -2459,6 +2547,7 @@ function main() {
   unlockThemeForm();
   setImageModeUI('text');
   initTierRevealManager();
+  initFinalRevealManager();
 
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get('room');

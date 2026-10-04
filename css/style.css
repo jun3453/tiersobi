@@ -3263,3 +3263,180 @@ input[type="text"]:focus, select:focus, textarea:focus {
   }
 }
 
+/* ============================================================
+   SCREEN 5: FINAL REVEAL (最終順位ドラマチック発表画面)
+   ============================================================ */
+
+.final-header-card {
+  background: linear-gradient(135deg, #2a1b40 0%, #1c2338 100%) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  box-shadow: 0 8px 32px rgba(245, 158, 11, 0.2) !important;
+}
+
+.final-badge {
+  background: linear-gradient(90deg, #f59e0b, #ec4899) !important;
+  color: #ffffff !important;
+}
+
+.final-trophy-avatar {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(234, 179, 8, 0.5)) !important;
+  border-color: #ffd700 !important;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5) !important;
+}
+
+.final-standings-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+.final-standings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 順位行 */
+.final-rank-row {
+  display: flex;
+  align-items: stretch;
+  background: #141824;
+  border: 1px solid #252e42;
+  border-radius: var(--radius-md);
+  min-height: 64px;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  position: relative;
+}
+
+/* 現在の発表対象行（パルス） */
+.final-rank-row.is-active-target {
+  border-color: #818cf8;
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.5);
+  transform: scale(1.015);
+  z-index: 2;
+  animation: targetRowPulse 1.2s infinite alternate ease-in-out;
+}
+
+/* 第1位（総合優勝）のゴールドオーラ */
+.final-rank-row.is-first-place-climax {
+  border-color: #ffd700 !important;
+  box-shadow: 0 0 35px rgba(255, 215, 0, 0.8), inset 0 0 16px rgba(245, 158, 11, 0.3) !important;
+  transform: scale(1.03);
+  z-index: 3;
+  animation: sClimaxAura 0.8s infinite alternate ease-in-out;
+}
+
+.final-rank-row.is-revealed {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #181e2e;
+}
+
+/* 1位・2位・3位のめくり後背景微調整 */
+.final-rank-row.rank-level-1.is-revealed {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, #181e2e 100%);
+  border-color: rgba(245, 158, 11, 0.6);
+}
+
+.final-rank-row.rank-level-2.is-revealed {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12) 0%, #181e2e 100%);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.final-rank-row.rank-level-3.is-revealed {
+  background: linear-gradient(90deg, rgba(180, 83, 9, 0.12) 0%, #181e2e 100%);
+  border-color: rgba(217, 119, 6, 0.5);
+}
+
+/* 順位バッジ */
+.final-rank-badge {
+  width: 72px;
+  min-width: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  font-weight: 900;
+  user-select: none;
+  background: #202738;
+  color: var(--text-secondary);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.final-rank-badge.rank-badge-1 {
+  background: linear-gradient(135deg, #ffd700, #f59e0b);
+  color: #12141a;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.final-rank-badge.rank-badge-2 {
+  background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+  color: #0f172a;
+}
+
+.final-rank-badge.rank-badge-3 {
+  background: linear-gradient(135deg, #fdba74, #ea580c);
+  color: #ffffff;
+}
+
+/* スロット内部 */
+.final-rank-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  position: relative;
+  min-height: 60px;
+}
+
+/* オープン後のプレイヤー名とスコア */
+.final-player-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  animation: popItemBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+}
+
+.final-player-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.final-player-score {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #f59e0b;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.final-player-score .score-num {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #fbbf24;
+}
+
+.final-player-score .score-unit {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 600px) {
+  .final-rank-badge {
+    width: 60px;
+    min-width: 60px;
+    font-size: 1rem;
+  }
+  .final-player-name {
+    font-size: 1rem;
+  }
+  .final-player-score .score-num {
+    font-size: 1.2rem;
+  }
+}
+

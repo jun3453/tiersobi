@@ -14,6 +14,8 @@ export const PACKET_TYPES = {
   REVEAL_ROUND_RESULT: 'REVEAL_ROUND_RESULT',
   REVEAL_STEP: 'REVEAL_STEP',
   REVEAL_FINISH: 'REVEAL_FINISH',
+  START_FINAL_REVEAL: 'START_FINAL_REVEAL',
+  FINAL_REVEAL_STEP: 'FINAL_REVEAL_STEP',
   BACK_TO_LOBBY: 'BACK_TO_LOBBY',
   KICK_PLAYER: 'KICK_PLAYER',
   SKIP_ROUND: 'SKIP_ROUND'
@@ -360,6 +362,20 @@ export class HostPeerManager {
   }
 
   /**
+   * 最終総合順位発表の開始を全ゲストに通知
+   */
+  startFinalReveal(payload) {
+    this.broadcast(PACKET_TYPES.START_FINAL_REVEAL, payload);
+  }
+
+  /**
+   * 最終総合順位の個別ステップ進行を全ゲストに通知
+   */
+  finalRevealStep(stepPayload) {
+    this.broadcast(PACKET_TYPES.FINAL_REVEAL_STEP, stepPayload);
+  }
+
+  /**
    * ロビー復帰を全ゲストに通知
    */
   backToLobby() {
@@ -453,6 +469,8 @@ export class GuestPeerManager {
     onRoundResultReveal,
     onRevealStep,
     onRevealFinish,
+    onFinalRevealStart,
+    onFinalRevealStep,
     onBackToLobby,
     onHostDisconnected,
     onKicked,
@@ -467,6 +485,8 @@ export class GuestPeerManager {
     this.onRoundResultReveal = onRoundResultReveal;
     this.onRevealStep = onRevealStep;
     this.onRevealFinish = onRevealFinish;
+    this.onFinalRevealStart = onFinalRevealStart;
+    this.onFinalRevealStep = onFinalRevealStep;
     this.onBackToLobby = onBackToLobby;
     this.onHostDisconnected = onHostDisconnected;
     this.onKicked = onKicked;
@@ -554,6 +574,14 @@ export class GuestPeerManager {
 
       case PACKET_TYPES.REVEAL_FINISH:
         if (this.onRevealFinish) this.onRevealFinish();
+        break;
+
+      case PACKET_TYPES.START_FINAL_REVEAL:
+        if (this.onFinalRevealStart) this.onFinalRevealStart(packet.payload);
+        break;
+
+      case PACKET_TYPES.FINAL_REVEAL_STEP:
+        if (this.onFinalRevealStep) this.onFinalRevealStep(packet.payload);
         break;
 
       case PACKET_TYPES.BACK_TO_LOBBY:
