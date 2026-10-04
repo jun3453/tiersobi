@@ -1,5 +1,5 @@
 import { TIERS, TIER_COLORS } from './config.js';
-import { rankToIndex, buildItemPositionMap } from './scoring.js';
+import { rankToIndex, buildItemPositionMap, buildItemToRankMap } from './scoring.js';
 export function createSearchLink(itemText, searchPrefix = '') {
   const trimmedPrefix = (searchPrefix || '').trim();
   const trimmedItem = (itemText || '').trim();
@@ -490,4 +490,316 @@ export function createComparisonGrid(allTiers, hostItemToRankMap, options = {}) 
   });
 
   return container;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * 左右の同じアイテムにカーソルまたはタップが当たった際に連動ハイライトさせる
+ */
+function attachLinkedHoverEvents(container) {
+  if (!container) return;
+  const chips = container.querySelectorAll('.tier-item-chip[data-item]');
+
+  chips.forEach((chip) => {
+    const item = chip.dataset.item;
+    if (!item) return;
+
+    const setHighlight = (enable) => {
+      chips.forEach((c) => {
+        if (c.dataset.item === item) {
+          if (enable) {
+            c.classList.add('item-linked-highlight');
+          } else {
+            c.classList.remove('item-linked-highlight');
+          }
+        }
+      });
+    };
+
+    chip.addEventListener('mouseenter', () => setHighlight(true));
+    chip.addEventListener('mouseleave', () => setHighlight(false));
+
+    chip.addEventListener('click', (e) => {
+      if (e.target.closest('.chip-search-btn') || e.target.closest('.card-search-btn')) return;
+      const isAlready = chip.classList.contains('item-linked-highlight');
+      chips.forEach((c) => c.classList.remove('item-linked-highlight'));
+      if (!isAlready) {
+        setHighlight(true);
+      }
+    });
+  });
+}
+
+/**
+ * ホスト（主役）と選んだプレイヤーのTier表を横並びで崩れずに比較するUIを生成
+ */
+export function createSideBySideComparison(hostTier, targetTier, options = {}) {
+  const {
+    hostPlayerName = '主役',
+    targetPlayerName = 'プレイヤー',
+    targetScore = null,
+    targetMaxScore = null,
+    isSkipped = false,
+    hasOrder = false,
+    searchPrefix = '',
+    itemImages = {},
+    hasImages = false,
+    layoutMode = 'side-by-side' // 'side-by-side' | 'stacked'
+  } = options;
+
+  const isOrderRule = Boolean(hasOrder);
+  const hostPosMap = buildItemPositionMap(hostTier || {});
+  const hostItemToRankMap = buildItemToRankMap(hostTier || {});
+
+  const safeHostTier = (hostTier && typeof hostTier === 'object') ? hostTier : { S: [], A: [], B: [], C: [], D: [] };
+  const safeTargetTier = (targetTier && typeof targetTier === 'object') ? targetTier : { S: [], A: [], B: [], C: [], D: [] };
+
+  // 相手が完全一致・近接一致させたアイテムのセット
+  const exactMatchedItems = new Set();
+  const nearMatchedItems = new Set();
+
+  for (const rank of TIERS) {
+    const items = safeTargetTier[rank] || [];
+    items.forEach((itemText, itemIdx) => {
+      if (isOrderRule) {
+        const hostPos = hostPosMap[itemText];
+        if (hostPos) {
+          const rankDiff = Math.abs(rankToIndex(rank) - rankToIndex(hostPos.rank));
+          const orderDiff = Math.abs(itemIdx - hostPos.index);
+          if (rankDiff === 0 && orderDiff === 0) exactMatchedItems.add(itemText);
+          else if (rankDiff === 0 || rankDiff === 1) nearMatchedItems.add(itemText);
+        }
+      } else {
+        const hostRank = hostItemToRankMap[itemText];
+        if (hostRank) {
+          const rankDiff = Math.abs(rankToIndex(rank) - rankToIndex(hostRank));
+          if (rankDiff === 0) exactMatchedItems.add(itemText);
+          else if (rankDiff === 1) nearMatchedItems.add(itemText);
+        }
+      }
+    });
+  }
+
+  // ルートコンテナ
+  const root = document.createElement('div');
+  root.className = `comparison-sync-table ${hasImages ? 'card-mode' : 'text-mode'} layout-${layoutMode}`;
+
+  // テーブルヘッダー
+  const header = document.createElement('div');
+  header.className = 'cs-table-header';
+
+  let scoreHtml = '';
+  if (isSkipped) {
+    scoreHtml = '<span class="cs-score-pill skipped">未提出 (0点)</span>';
+  } else if (targetScore !== null && targetMaxScore !== null) {
+    const pct = targetMaxScore > 0 ? Math.round((targetScore / targetMaxScore) * 100) : 0;
+    scoreHtml = `<span class="cs-score-pill">${targetScore} / ${targetMaxScore}点 (${pct}%)</span>`;
+  }
+
+  header.innerHTML = `
+    <div class="cs-header-side cs-header-host">
+      <div class="cs-header-role">👑 主役（正解）</div>
+      <div class="cs-header-name">${escapeHtml(hostPlayerName)} さん</div>
+    </div>
+    <div class="cs-header-vs">
+      <span class="cs-vs-badge">VS</span>
+    </div>
+    <div class="cs-header-side cs-header-target">
+      <div class="cs-header-role">🎮 比較中</div>
+      <div class="cs-header-name">
+        <span class="cs-target-player-name">${escapeHtml(targetPlayerName)} さん</span>
+        ${scoreHtml}
+      </div>
+    </div>
+  `;
+  root.appendChild(header);
+
+  // 各ランク行コンテナ
+  const rowsContainer = document.createElement('div');
+  rowsContainer.className = 'cs-sync-rows';
+
+  for (const rank of TIERS) {
+    const row = document.createElement('div');
+    row.className = `cs-sync-row rank-${rank.toLowerCase()}`;
+    row.dataset.rank = rank;
+
+    const rankStyle = TIER_COLORS[rank] || { bg: '#4b5563', text: '#ffffff' };
+
+    // --- 左側: 主役（ホスト）の半身 ---
+    const hostHalf = document.createElement('div');
+    hostHalf.className = 'cs-half cs-half-host';
+
+    const hostLabel = document.createElement('div');
+    hostLabel.className = `tier-label rank-${rank.toLowerCase()}`;
+    hostLabel.textContent = rank;
+    hostLabel.style.backgroundColor = rankStyle.bg;
+    hostLabel.style.color = rankStyle.text;
+
+    const hostSlot = document.createElement('div');
+    hostSlot.className = 'tier-slot cs-slot cs-slot-host readonly';
+
+    const hostItems = safeHostTier[rank] || [];
+    if (hostItems.length === 0) {
+      const emptySpan = document.createElement('span');
+      emptySpan.className = 'empty-slot-text';
+      emptySpan.textContent = '(なし)';
+      hostSlot.appendChild(emptySpan);
+    } else {
+      hostItems.forEach((itemText) => {
+        const imageUrl = (itemImages && itemImages[itemText]) || '';
+        const chip = createTierItemChip(itemText, {
+          imageUrl,
+          searchPrefix,
+          readonly: true,
+          cardMode: Boolean(hasImages)
+        });
+
+        // 相手の一致状況に応じた視覚フィードバック
+        if (exactMatchedItems.has(itemText)) {
+          chip.classList.add('chip-host-matched');
+          chip.title = `${itemText}（${targetPlayerName}さんも完全一致！）`;
+        } else if (nearMatchedItems.has(itemText)) {
+          chip.classList.add('chip-host-near');
+        }
+
+        hostSlot.appendChild(chip);
+      });
+    }
+
+    hostHalf.appendChild(hostLabel);
+    hostHalf.appendChild(hostSlot);
+
+    // --- 右側: 選んだプレイヤーの半身 ---
+    const targetHalf = document.createElement('div');
+    targetHalf.className = 'cs-half cs-half-target';
+
+    const targetLabel = document.createElement('div');
+    targetLabel.className = `tier-label rank-${rank.toLowerCase()}`;
+    targetLabel.textContent = rank;
+    targetLabel.style.backgroundColor = rankStyle.bg;
+    targetLabel.style.color = rankStyle.text;
+
+    const targetSlot = document.createElement('div');
+    targetSlot.className = 'tier-slot cs-slot cs-slot-target readonly';
+
+    const targetItems = safeTargetTier[rank] || [];
+    if (isSkipped && targetItems.length === 0) {
+      const skippedSpan = document.createElement('span');
+      skippedSpan.className = 'empty-slot-text';
+      skippedSpan.textContent = '(未提出のため未配置)';
+      targetSlot.appendChild(skippedSpan);
+    } else if (targetItems.length === 0) {
+      const emptySpan = document.createElement('span');
+      emptySpan.className = 'empty-slot-text';
+      emptySpan.textContent = '(なし)';
+      targetSlot.appendChild(emptySpan);
+    } else {
+      targetItems.forEach((itemText, itemIdx) => {
+        const imageUrl = (itemImages && itemImages[itemText]) || '';
+        const chip = createTierItemChip(itemText, {
+          imageUrl,
+          searchPrefix,
+          readonly: true,
+          cardMode: Boolean(hasImages)
+        });
+
+        let matchBadgeText = '';
+        let matchBadgeClass = '';
+
+        if (isOrderRule) {
+          const hostPos = hostPosMap[itemText];
+          if (hostPos) {
+            const rankDiff = Math.abs(rankToIndex(rank) - rankToIndex(hostPos.rank));
+            const orderDiff = Math.abs(itemIdx - hostPos.index);
+
+            if (rankDiff === 0 && orderDiff === 0) {
+              chip.classList.add('chip-match-exact');
+              chip.title = '完全一致 (ランク・順序一致 +20)';
+              matchBadgeText = '⭕ 一致';
+              matchBadgeClass = 'badge-exact';
+            } else if (rankDiff === 0 && orderDiff > 0) {
+              chip.classList.add('chip-match-near');
+              chip.title = `順序ズレ (正解は${hostPos.index + 1}番目 +10)`;
+              matchBadgeText = '△ 順序ズレ';
+              matchBadgeClass = 'badge-near';
+            } else if (rankDiff === 1) {
+              chip.classList.add('chip-match-near');
+              chip.title = `1ランクズレ (正解: ${hostPos.rank} +5)`;
+              matchBadgeText = `△ 正解:${hostPos.rank}`;
+              matchBadgeClass = 'badge-near';
+            } else {
+              chip.classList.add('chip-match-miss');
+              chip.title = `ズレ (正解: ${hostPos.rank})`;
+              matchBadgeText = `✕ 正解:${hostPos.rank}`;
+              matchBadgeClass = 'badge-miss';
+            }
+          } else {
+            chip.classList.add('chip-match-miss');
+          }
+        } else {
+          const hostRank = hostItemToRankMap[itemText];
+          if (hostRank) {
+            const rankDiff = Math.abs(rankToIndex(rank) - rankToIndex(hostRank));
+            if (rankDiff === 0) {
+              chip.classList.add('chip-match-exact');
+              chip.title = '完全一致 (+20)';
+              matchBadgeText = '⭕ 一致';
+              matchBadgeClass = 'badge-exact';
+            } else if (rankDiff === 1) {
+              chip.classList.add('chip-match-near');
+              chip.title = `1ランクズレ (正解: ${hostRank} +5)`;
+              matchBadgeText = `△ 正解:${hostRank}`;
+              matchBadgeClass = 'badge-near';
+            } else {
+              chip.classList.add('chip-match-miss');
+              chip.title = `ズレ (正解: ${hostRank})`;
+              matchBadgeText = `✕ 正解:${hostRank}`;
+              matchBadgeClass = 'badge-miss';
+            }
+          } else {
+            chip.classList.add('chip-match-miss');
+          }
+        }
+
+        // バッジを追加
+        if (matchBadgeText) {
+          const badge = document.createElement('span');
+          badge.className = `cs-item-badge ${matchBadgeClass}`;
+          badge.textContent = matchBadgeText;
+          if (hasImages) {
+            // 画像カードモード時はカード左上にオーバーレイバッジとして配置（名前テキスト領域を圧迫しない）
+            badge.classList.add('card-badge-overlay');
+            chip.appendChild(badge);
+          } else {
+            chip.appendChild(badge);
+          }
+        }
+
+        targetSlot.appendChild(chip);
+      });
+    }
+
+    targetHalf.appendChild(targetLabel);
+    targetHalf.appendChild(targetSlot);
+
+    row.appendChild(hostHalf);
+    row.appendChild(targetHalf);
+    rowsContainer.appendChild(row);
+  }
+
+  root.appendChild(rowsContainer);
+
+  // 左右アイテムの連動ハイライトイベント設定
+  attachLinkedHoverEvents(root);
+
+  return root;
 }

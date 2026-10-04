@@ -1,5 +1,5 @@
 import { HostPeerManager, GuestPeerManager } from './p2p.js';
-import { TierBoard, createComparisonGrid } from './tier-board.js?v=20261004_tab_search';
+import { TierBoard, createComparisonGrid, createSideBySideComparison } from './tier-board.js?v=20261004_side_by_side_fix';
 import { calculatePlayerScore, buildItemToRankMap } from './scoring.js';
 import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20261001_search_prefix';
 import { fetchItemImage, openImageSearchWindow } from './image-fetcher.js';
@@ -174,11 +174,25 @@ const resultRoundTitle = document.getElementById('result-round-title');
 const resultRoundSubtitle = document.getElementById('result-round-subtitle');
 const hostBonusContainer = document.getElementById('host-bonus-container');
 const roundScoresContainer = document.getElementById('round-scores-container');
+const comparisonSectionCard = document.getElementById('comparison-section-card');
+const sideComparisonControls = document.getElementById('side-comparison-controls');
+const comparisonPlayerPills = document.getElementById('comparison-player-pills');
+const gridComparisonHint = document.getElementById('grid-comparison-hint');
+const btnCompModeSide = document.getElementById('btn-comp-mode-side');
+const btnCompModeGrid = document.getElementById('btn-comp-mode-grid');
+const btnCompLayoutSide = document.getElementById('btn-comp-layout-side');
+const btnCompLayoutStack = document.getElementById('btn-comp-layout-stack');
 const comparisonTiersContainer = document.getElementById('comparison-tiers-container');
 const cumulativeScoresBody = document.getElementById('cumulative-scores-body');
 const resultHostControls = document.getElementById('result-host-controls');
 const resultGuestWaiting = document.getElementById('result-guest-waiting');
 const btnNextAction = document.getElementById('btn-next-action');
+
+// 結果発表画面での比較状態
+let currentResultPayload = null;
+let currentComparisonViewMode = 'side-by-side'; // 'side-by-side' | 'grid'
+let currentComparisonLayout = 'side-by-side';   // 'side-by-side' | 'stacked'
+let selectedComparisonPeerId = null;
 
 // トーストコンテナ
 const toastContainer = document.getElementById('toast-container');
@@ -1725,15 +1739,17 @@ function showResultScreen(payload) {
     } else {
       scores.forEach((sc, idx) => {
         const card = document.createElement('div');
-        card.className = 'score-ranking-item';
+        card.className = 'score-ranking-item clickable-for-comparison';
+        card.dataset.peerId = sc.peerId;
+        card.title = 'クリックしてこのプレイヤーのTier表を主役と横並び比較';
         const rankBadgeClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
         const maxScore = sc.maxScore || 1;
         const percent = Math.round(((sc.score || 0) / maxScore) * 100);
 
         const isSkipped = Boolean(sc.isSkipped);
         const nameDisplay = isSkipped
-          ? `${sc.playerName} <span style="font-size:0.75rem; color:#f87171; font-weight:normal;">(未提出)</span>`
-          : sc.playerName;
+          ? `${escapeHtml(sc.playerName)} <span style="font-size:0.75rem; color:#f87171; font-weight:normal;">(未提出)</span>`
+          : escapeHtml(sc.playerName);
 
         const detailsList = Array.isArray(sc.details) ? sc.details : [];
         let detailsHtml = detailsList.map(d => {
@@ -1751,7 +1767,7 @@ function showResultScreen(payload) {
           }
           return `
             <div class="score-detail-chip">
-              <span><strong>${d.item}</strong> (${d.guestRank})</span>
+              <span><strong>${escapeHtml(d.item)}</strong> (${d.guestRank})</span>
               <span class="score-detail-pts ${ptsClass}">${mark}</span>
             </div>
           `;
@@ -1763,26 +1779,46 @@ function showResultScreen(payload) {
 
         card.innerHTML = `
           <div class="score-ranking-header">
-            <div class="score-rank-badge ${rankBadgeClass}">${idx + 1}</div>
-            <div class="score-player-name">${nameDisplay}</div>
-            <div class="score-points">${sc.score || 0} / ${maxScore}点 <span style="font-size:0.8rem; color:var(--text-secondary);">(${percent}%)</span></div>
+            <div class="score-rank-left">
+              <div class="score-rank-badge ${rankBadgeClass}">${idx + 1}</div>
+              <div class="score-player-name">${nameDisplay}</div>
+            </div>
+            <div class="score-rank-right">
+              <div class="score-points">${sc.score || 0} / ${maxScore}点 <span style="font-size:0.8rem; color:var(--text-secondary);">(${percent}%)</span></div>
+              <button class="btn btn-compare-mini" type="button" title="主役と横並び比較">⚖️ 比較</button>
+            </div>
           </div>
           <div class="score-details-list">
             ${detailsHtml}
           </div>
         `;
+
+        card.addEventListener('click', () => {
+          selectComparisonPlayer(sc.peerId);
+        });
+
         roundScoresContainer.appendChild(card);
       });
     }
 
-    // 2. ★みんなのTier表見比べエリア
-    comparisonTiersContainer.innerHTML = '';
-    const hostItemMap = buildItemToRankMap(roundHostTier);
-    const searchPrefix = payload.searchPrefix || (currentRoundData && currentRoundData.searchPrefix) || '';
-    const itemImages = payload.itemImages || (currentRoundData && currentRoundData.itemImages) || {};
-    const hasImages = Boolean(payload.hasImages !== undefined ? payload.hasImages : (currentRoundData && currentRoundData.hasImages));
-    const grid = createComparisonGrid(allTiers, hostItemMap, { hasOrder: isHasOrder, hostTier: roundHostTier, searchPrefix, itemImages, hasImages });
-    comparisonTiersContainer.appendChild(grid);
+    // 2. ★結果比較エリアの初期化・描画
+    currentResultPayload = payload;
+
+    // 初期比較対象プレイヤーの選定
+    const candidates = allTiers.filter(t => !t.isRoundHost);
+    const isMeCandidate = myPeerId && candidates.some(c => c.peerId === myPeerId);
+
+    if (isMeCandidate) {
+      selectedComparisonPeerId = myPeerId;
+    } else if (scores.length > 0 && candidates.some(c => c.peerId === scores[0].peerId)) {
+      selectedComparisonPeerId = scores[0].peerId;
+    } else if (candidates.length > 0) {
+      selectedComparisonPeerId = candidates[0].peerId;
+    } else {
+      selectedComparisonPeerId = null;
+    }
+
+    renderComparisonSection();
 
     // 3. 総合ランキング表
     cumulativeScoresBody.innerHTML = '';
@@ -1818,6 +1854,189 @@ function showResultScreen(payload) {
     console.error('[Result] 結果画面描画中に例外発生:', err);
     switchState('result'); // 例外があっても結果画面へ遷移
   }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function selectComparisonPlayer(peerId) {
+  selectedComparisonPeerId = peerId;
+  currentComparisonViewMode = 'side-by-side';
+  renderComparisonSection();
+  if (comparisonSectionCard) {
+    comparisonSectionCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function renderComparisonSection() {
+  if (!currentResultPayload) return;
+  const payload = currentResultPayload;
+
+  const roundHostName = payload.roundHostName || '主役';
+  const roundHostTier = (payload.roundHostTier && typeof payload.roundHostTier === 'object')
+    ? payload.roundHostTier
+    : { S: [], A: [], B: [], C: [], D: [] };
+  const allTiers = Array.isArray(payload.allTiers) ? payload.allTiers : [];
+  const scores = Array.isArray(payload.scores) ? payload.scores : [];
+  const isHasOrder = Boolean(payload.hasOrder);
+  const searchPrefix = payload.searchPrefix || (currentRoundData && currentRoundData.searchPrefix) || '';
+  const itemImages = payload.itemImages || (currentRoundData && currentRoundData.itemImages) || {};
+  const hasImages = Boolean(payload.hasImages !== undefined ? payload.hasImages : (currentRoundData && currentRoundData.hasImages));
+
+  // モードタブのアクティブ表示切り替え
+  if (btnCompModeSide && btnCompModeGrid) {
+    if (currentComparisonViewMode === 'side-by-side') {
+      btnCompModeSide.classList.add('active');
+      btnCompModeGrid.classList.remove('active');
+    } else {
+      btnCompModeSide.classList.remove('active');
+      btnCompModeGrid.classList.add('active');
+    }
+  }
+
+  // レイアウトボタンのアクティブ表示切り替え
+  if (btnCompLayoutSide && btnCompLayoutStack) {
+    if (currentComparisonLayout === 'side-by-side') {
+      btnCompLayoutSide.classList.add('active');
+      btnCompLayoutStack.classList.remove('active');
+    } else {
+      btnCompLayoutSide.classList.remove('active');
+      btnCompLayoutStack.classList.add('active');
+    }
+  }
+
+  if (currentComparisonViewMode === 'grid') {
+    // 全員一覧モード
+    if (sideComparisonControls) sideComparisonControls.style.display = 'none';
+    if (gridComparisonHint) gridComparisonHint.style.display = 'block';
+
+    comparisonTiersContainer.innerHTML = '';
+    const hostItemMap = buildItemToRankMap(roundHostTier);
+    const grid = createComparisonGrid(allTiers, hostItemMap, {
+      hasOrder: isHasOrder,
+      hostTier: roundHostTier,
+      searchPrefix,
+      itemImages,
+      hasImages
+    });
+    comparisonTiersContainer.appendChild(grid);
+    return;
+  }
+
+  // 横並び比較モード
+  if (sideComparisonControls) sideComparisonControls.style.display = 'block';
+  if (gridComparisonHint) gridComparisonHint.style.display = 'none';
+
+  // 比較対象プレイヤー一覧（主役以外のプレイヤー）
+  const candidatePlayers = allTiers.filter(t => !t.isRoundHost);
+
+  // 選択中IDの検証
+  if (!candidatePlayers.some(p => p.peerId === selectedComparisonPeerId)) {
+    if (candidatePlayers.length > 0) {
+      selectedComparisonPeerId = candidatePlayers[0].peerId;
+    } else {
+      selectedComparisonPeerId = null;
+    }
+  }
+
+  // プレイヤー選択ピルの描画
+  if (comparisonPlayerPills) {
+    comparisonPlayerPills.innerHTML = '';
+    if (candidatePlayers.length === 0) {
+      comparisonPlayerPills.innerHTML = '<span class="hint-text" style="padding: 6px;">比較対象の参加者がいません</span>';
+    } else {
+      candidatePlayers.forEach(p => {
+        const sc = scores.find(s => s.peerId === p.peerId);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const isSelected = p.peerId === selectedComparisonPeerId;
+        btn.className = `player-pill ${isSelected ? 'active' : ''}`;
+
+        const isMe = (p.peerId === myPeerId);
+        const meLabel = isMe ? ' <span class="pill-me-badge">(あなた)</span>' : '';
+        const scoreText = sc
+          ? `+${sc.score || 0}点`
+          : (p.isSkipped ? '未提出' : '');
+
+        btn.innerHTML = `
+          <span class="pill-name">🎮 ${escapeHtml(p.playerName)}${meLabel}</span>
+          ${scoreText ? `<span class="pill-score ${p.isSkipped ? 'skipped' : ''}">${scoreText}</span>` : ''}
+        `;
+
+        btn.addEventListener('click', () => {
+          selectedComparisonPeerId = p.peerId;
+          renderComparisonSection();
+        });
+
+        comparisonPlayerPills.appendChild(btn);
+      });
+    }
+  }
+
+  // 比較テーブル描画
+  comparisonTiersContainer.innerHTML = '';
+
+  const targetEntry = allTiers.find(t => t.peerId === selectedComparisonPeerId) || candidatePlayers[0];
+
+  if (!targetEntry) {
+    comparisonTiersContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:24px;">比較対象の予想データがありません。</div>';
+    return;
+  }
+
+  const targetScoreObj = scores.find(s => s.peerId === targetEntry.peerId);
+  const targetScore = targetScoreObj ? targetScoreObj.score : (targetEntry.isSkipped ? 0 : null);
+  const targetMaxScore = targetScoreObj ? targetScoreObj.maxScore : null;
+
+  const compTable = createSideBySideComparison(roundHostTier, targetEntry.tier, {
+    hostPlayerName: roundHostName,
+    targetPlayerName: targetEntry.playerName + (targetEntry.peerId === myPeerId ? ' (あなた)' : ''),
+    targetScore,
+    targetMaxScore,
+    isSkipped: Boolean(targetEntry.isSkipped),
+    hasOrder: isHasOrder,
+    searchPrefix,
+    itemImages,
+    hasImages,
+    layoutMode: currentComparisonLayout
+  });
+
+  const scrollWrapper = document.createElement('div');
+  scrollWrapper.className = 'comparison-scroll-wrapper';
+  scrollWrapper.appendChild(compTable);
+  comparisonTiersContainer.appendChild(scrollWrapper);
+}
+
+// 比較エリアの操作リスナー登録
+if (btnCompModeSide) {
+  btnCompModeSide.addEventListener('click', () => {
+    currentComparisonViewMode = 'side-by-side';
+    renderComparisonSection();
+  });
+}
+if (btnCompModeGrid) {
+  btnCompModeGrid.addEventListener('click', () => {
+    currentComparisonViewMode = 'grid';
+    renderComparisonSection();
+  });
+}
+if (btnCompLayoutSide) {
+  btnCompLayoutSide.addEventListener('click', () => {
+    currentComparisonLayout = 'side-by-side';
+    renderComparisonSection();
+  });
+}
+if (btnCompLayoutStack) {
+  btnCompLayoutStack.addEventListener('click', () => {
+    currentComparisonLayout = 'stacked';
+    renderComparisonSection();
+  });
 }
 
 // 次のラウンドまたはロビーへ (ホスト操作)

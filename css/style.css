@@ -1823,7 +1823,503 @@ input[type="text"]:focus, select:focus, textarea:focus {
   color: #fbbf24;
 }
 
-/* 比較グリッド (みんなのTier表) */
+/* ==========================================
+   結果発表フェーズ: 比較セクション & 横並び同期テーブル
+   ========================================== */
+
+.comparison-section-card {
+  position: relative;
+}
+
+.comparison-card-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.comparison-mode-tabs {
+  display: inline-flex;
+  background: #11141e;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 4px;
+}
+
+.comp-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: calc(var(--radius-md) - 2px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comp-tab-btn:hover {
+  color: #ffffff;
+}
+
+.comp-tab-btn.active {
+  background: #4f46e5;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* 横並び比較コントロールバー */
+.side-comparison-controls {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.comparison-player-selector {
+  background: #131722;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.comparison-selector-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.comparison-selector-label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #cbd5e1;
+}
+
+.comparison-selector-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.comparison-player-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.player-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #1c2130;
+  border: 1px solid #2d354a;
+  border-radius: 20px;
+  padding: 6px 13px;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.player-pill:hover {
+  background: #252c40;
+  border-color: #4a5578;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.player-pill.active {
+  background: #6366f1;
+  border-color: #818cf8;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.45);
+}
+
+.player-pill .pill-score {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #34d399;
+}
+
+.player-pill.active .pill-score {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.player-pill .pill-score.skipped {
+  color: #f87171;
+}
+
+.player-pill .pill-me-badge {
+  font-size: 0.72rem;
+  opacity: 0.9;
+}
+
+/* サブ操作バー（Tips ＆ レイアウト切り替え） */
+.comparison-sub-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.comparison-tips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.comparison-layout-toggle {
+  display: inline-flex;
+  background: #11141e;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 2px;
+}
+
+.comp-layout-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.comp-layout-btn:hover {
+  color: #ffffff;
+}
+
+.comp-layout-btn.active {
+  background: #2b3245;
+  color: #ffffff;
+}
+
+/* スクロールラッパー & 横並び比較テーブル（崩れ防止） */
+.comparison-scroll-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
+}
+
+.comparison-scroll-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.comparison-scroll-wrapper::-webkit-scrollbar-track {
+  background: #10131a;
+  border-radius: 4px;
+}
+
+.comparison-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: #2d354a;
+  border-radius: 4px;
+}
+
+.comparison-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* 同期比較テーブル本体 */
+.comparison-sync-table {
+  display: flex;
+  flex-direction: column;
+  background: #141720;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* 横並びモード時の最小幅設定: スマホでもチップが狭小化せず、崩れずに横スクロール可能 */
+.comparison-sync-table.layout-side-by-side {
+  min-width: 520px;
+}
+
+.comparison-sync-table.card-mode.layout-side-by-side {
+  min-width: 560px;
+}
+
+/* 上下並びモード時 */
+.comparison-sync-table.layout-stacked {
+  min-width: 100%;
+}
+
+/* テーブルヘッダー */
+.cs-table-header {
+  display: flex;
+  align-items: center;
+  background: #181d28;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 14px;
+}
+
+.cs-header-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cs-header-host {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  padding-right: 12px;
+}
+
+.cs-header-target {
+  padding-left: 12px;
+}
+
+.cs-header-role {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.cs-header-host .cs-header-role {
+  color: #fbbf24;
+}
+
+.cs-header-target .cs-header-role {
+  color: #818cf8;
+}
+
+.cs-header-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cs-vs-badge {
+  padding: 2px 10px;
+  font-size: 0.85rem;
+  font-weight: 900;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cs-score-pill {
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.cs-score-pill.skipped {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+/* 同期行コンテナ */
+.cs-sync-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px;
+}
+
+/* 各ランク行: 左右の高さが flex: stretch により完全同期！絶対に上下にズレない！ */
+.cs-sync-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.comparison-sync-table.layout-stacked .cs-sync-row {
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* 左右の半身 */
+.cs-half {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  background: #171b26;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cs-half-host {
+  border-left: 3px solid #f59e0b;
+}
+
+.cs-half-target {
+  border-left: 3px solid #6366f1;
+}
+
+.cs-half .tier-label {
+  width: 42px;
+  font-size: 1.15rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.cs-slot {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  padding: 6px 10px;
+  gap: 6px;
+  min-height: 48px;
+  background: #131620;
+}
+
+.comparison-sync-table.card-mode .cs-slot {
+  min-height: 86px;
+  align-items: flex-start;
+  align-content: flex-start;
+}
+
+/* チップ内ミニバッジ */
+.cs-item-badge {
+  font-size: 0.64rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.cs-item-badge.badge-exact {
+  background: rgba(16, 185, 129, 0.3);
+  color: #a7f3d0;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+.cs-item-badge.badge-near {
+  background: rgba(245, 158, 11, 0.3);
+  color: #fde68a;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.cs-item-badge.badge-miss {
+  background: rgba(100, 116, 139, 0.25);
+  color: #cbd5e1;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+}
+
+/* カードモードでのオーバーレイバッジ (画像左上に小さく重ねてテキスト領域を圧迫しない) */
+.tier-item-chip.card-mode .cs-item-badge.card-badge-overlay {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  z-index: 5;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 比較テーブル内でのカードモード調整: 縦伸び崩れ防止 & 均一サイズ維持 */
+.comparison-sync-table.card-mode .tier-item-chip.card-mode.readonly {
+  width: 74px !important;
+  min-height: 84px !important;
+  height: auto;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.comparison-sync-table.card-mode .tier-item-chip.card-mode.readonly .card-thumb-wrapper {
+  width: 100% !important;
+  height: 48px !important;
+  flex-shrink: 0;
+  background: #0d111a;
+  position: relative;
+}
+
+.comparison-sync-table.card-mode .tier-item-chip.card-mode.readonly .card-label-bar {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-height: 32px !important;
+  max-height: 48px !important;
+  padding: 3px 2px !important;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #141822;
+}
+
+.comparison-sync-table.card-mode .tier-item-chip.card-mode.readonly .card-label-bar .chip-text {
+  font-size: 0.63rem !important;
+  font-weight: 700;
+  line-height: 1.2 !important;
+  text-align: center;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+/* ホスト側チップへの完全一致マーク */
+.tier-item-chip.chip-host-matched {
+  box-shadow: 0 0 0 2px #10b981 inset, 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
+.tier-item-chip.chip-host-near {
+  box-shadow: 0 0 0 1px #f59e0b inset;
+}
+
+/* 左右連動ハイライト */
+.tier-item-chip.item-linked-highlight {
+  transform: scale(1.08) !important;
+  z-index: 10 !important;
+  box-shadow: 0 0 14px 4px #818cf8 !important;
+  border-color: #818cf8 !important;
+  transition: transform 0.15s, box-shadow 0.15s !important;
+}
+
+/* 比較グリッド (みんなのTier表: 全員一覧モード) */
 .comparison-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1905,12 +2401,55 @@ input[type="text"]:focus, select:focus, textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.score-ranking-item.clickable-for-comparison {
+  cursor: pointer;
+}
+
+.score-ranking-item.clickable-for-comparison:hover {
+  border-color: #6366f1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
 }
 
 .score-ranking-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+
+.score-rank-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.score-rank-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-compare-mini {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.score-ranking-item:hover .btn-compare-mini {
+  background: #6366f1;
+  color: #ffffff;
 }
 
 .score-rank-badge {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>tiersobi</title>
-  <link rel="stylesheet" href="css/style.css?v=20261004_search_prefix_text_mode">
+  <link rel="stylesheet" href="css/style.css?v=20261004_side_by_side_fix">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
@@ -370,14 +370,64 @@
           </div>
         </div>
 
-        <!-- ★新機能: みんなのTier表見比べエリア -->
-        <div class="card">
-          <div class="card-title">👀 みんなのTier表を見比べよう！</div>
-          <p class="hint-text" style="margin-bottom: 12px;">
+        <!-- ★結果比較エリア -->
+        <div class="card comparison-section-card" id="comparison-section-card">
+          <div class="comparison-card-topbar">
+            <div>
+              <div class="card-title" style="margin-bottom: 2px;">👀 Tier表を比較しよう！</div>
+              <p class="hint-text" id="comparison-main-hint" style="margin-bottom: 0;">
+                👑主役（正解）と選んだ人のTier表を横並びで直接見比べられます。
+              </p>
+            </div>
+            <!-- モード切り替えタブ -->
+            <div class="comparison-mode-tabs" role="tablist">
+              <button id="btn-comp-mode-side" class="comp-tab-btn active" type="button" role="tab" title="ホストと選んだ人を横並びで比較">
+                ⚖️ 横並び比較
+              </button>
+              <button id="btn-comp-mode-grid" class="comp-tab-btn" type="button" role="tab" title="全員のTier表を一覧表示">
+                👥 全員一覧
+              </button>
+            </div>
+          </div>
+
+          <!-- 横並び比較用コントロールバー -->
+          <div id="side-comparison-controls" class="side-comparison-controls">
+            <!-- 比較対象プレイヤー選択ピルバー -->
+            <div class="comparison-player-selector">
+              <div class="comparison-selector-header">
+                <span class="comparison-selector-label">🎯 比較する人を選択:</span>
+                <span class="comparison-selector-hint">（クリックで切り替え）</span>
+              </div>
+              <div id="comparison-player-pills" class="comparison-player-pills">
+                <!-- プレイヤー選択ボタン群 -->
+              </div>
+            </div>
+
+            <!-- 操作・表示トグルバー -->
+            <div class="comparison-sub-bar">
+              <div class="comparison-tips">
+                <span class="tips-icon">💡</span>
+                <span>アイテムにマウスを乗せると（スマホはタップ）、左右の同じアイテムが光ります！</span>
+              </div>
+              <div class="comparison-layout-toggle">
+                <button id="btn-comp-layout-side" class="comp-layout-btn active" type="button" title="横並びで比較">
+                  ↔ 横並び
+                </button>
+                <button id="btn-comp-layout-stack" class="comp-layout-btn" type="button" title="上下並びで比較">
+                  ↕ 上下並び
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 全員一覧時のヒントテキスト -->
+          <p id="grid-comparison-hint" class="hint-text" style="display: none; margin-bottom: 12px;">
             👑が今回の主役（正解）です。緑枠は完全一致(+20)、黄枠は1ズレ(+5)や順序ズレ(+10)を表します。
           </p>
+
+          <!-- 比較コンテナ（横並び比較テーブルまたは全員グリッドが挿入される） -->
           <div id="comparison-tiers-container">
-            <!-- 全員のTier表がグリッドで並列挿入されます -->
+            <!-- 動的挿入 -->
           </div>
         </div>
 
@@ -415,6 +465,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20261004_tab_search"></script>
+  <script type="module" src="js/app.js?v=20261004_side_by_side_fix"></script>
 </body>
 </html>
