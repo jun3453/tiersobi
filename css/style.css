@@ -2719,3 +2719,547 @@ input[type="text"]:focus, select:focus, textarea:focus {
   color: #c7d2fe;
   border: 1px solid rgba(99, 102, 241, 0.4);
 }
+
+/* ============================================================
+   SCREEN: REVEAL (正解Tierドラマチックめくり演出画面)
+   ============================================================ */
+
+.reveal-stage-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* 演出ヘッダー */
+.reveal-header-card {
+  background: linear-gradient(135deg, #1e2230 0%, #261e38 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reveal-header-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 主役ヒーローエリア */
+.reveal-host-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.reveal-host-avatar {
+  font-size: 2.2rem;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.4));
+  border: 2px solid #f59e0b;
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.4);
+  animation: hostCrownBounce 2s infinite ease-in-out;
+}
+
+@keyframes hostCrownBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.reveal-host-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.reveal-host-tag {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f59e0b;
+}
+
+.reveal-host-name {
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+/* お題 & ルールボックス */
+.reveal-theme-box {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: rgba(15, 18, 26, 0.6);
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.reveal-theme-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.reveal-theme-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f0f3f8;
+}
+
+.reveal-rule-badge {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+
+.reveal-rule-badge.badge-order {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.reveal-rule-badge.badge-no-order {
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+/* 実況アナウンスバナー */
+.reveal-announcer-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, #3730a3, #4338ca);
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  box-shadow: 0 4px 15px rgba(67, 56, 202, 0.35);
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  transition: all 0.3s ease;
+}
+
+.reveal-announcer-banner .announcer-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.reveal-announcer-banner .announcer-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+/* ドラムロール中のバナー */
+.reveal-announcer-banner.climax-drumroll {
+  background: linear-gradient(90deg, #b45309, #d97706);
+  border-color: #fbbf24;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+  animation: bannerPulseDrumroll 0.35s infinite alternate;
+}
+
+@keyframes bannerPulseDrumroll {
+  from { transform: scale(1); filter: brightness(1); }
+  to { transform: scale(1.015); filter: brightness(1.2); }
+}
+
+/* Sランク決定オープン後のバナー */
+.reveal-announcer-banner.climax-opened {
+  background: linear-gradient(90deg, #d97706, #7c3aed);
+  border-color: #fde047;
+  box-shadow: 0 0 25px rgba(253, 224, 71, 0.5);
+}
+
+/* 全完了後のバナー */
+.reveal-announcer-banner.all-finished {
+  background: linear-gradient(90deg, #059669, #2563eb);
+  border-color: #34d399;
+}
+
+/* 正解Tierボードカード */
+.reveal-board-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: var(--shadow-md);
+}
+
+.reveal-board-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 各ランク行 */
+.reveal-tier-row {
+  display: flex;
+  align-items: stretch;
+  background: #151821;
+  border: 1px solid #282f40;
+  border-radius: var(--radius-md);
+  min-height: 58px;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  position: relative;
+}
+
+/* 現在の発表対象行（鼓動パルス） */
+.reveal-tier-row.is-active-target {
+  border-color: #818cf8;
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.45), inset 0 0 8px rgba(99, 102, 241, 0.15);
+  transform: scale(1.012);
+  z-index: 2;
+  animation: targetRowPulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes targetRowPulse {
+  0% { box-shadow: 0 0 12px rgba(99, 102, 241, 0.4); }
+  100% { box-shadow: 0 0 22px rgba(99, 102, 241, 0.7); }
+}
+
+/* Sランクのクライマックス特別演出（ゴールド発光） */
+.reveal-tier-row.is-s-climax {
+  border-color: #fbbf24 !important;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.75), inset 0 0 16px rgba(245, 158, 11, 0.25) !important;
+  transform: scale(1.025);
+  z-index: 3;
+  animation: sClimaxAura 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes sClimaxAura {
+  0% {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.6), inset 0 0 10px rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+  }
+  100% {
+    box-shadow: 0 0 35px rgba(254, 240, 138, 0.9), inset 0 0 20px rgba(254, 240, 138, 0.35);
+    border-color: #fef08a;
+  }
+}
+
+/* めくり後の行 */
+.reveal-tier-row.is-revealed {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: #181d28;
+}
+
+/* ランクバッジラベル */
+.reveal-tier-label {
+  width: 54px;
+  min-width: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: 900;
+  user-select: none;
+  border-top-left-radius: calc(var(--radius-md) - 1px);
+  border-bottom-left-radius: calc(var(--radius-md) - 1px);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* スロット内部 */
+.reveal-tier-slot {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  position: relative;
+  min-height: 56px;
+  overflow: hidden;
+}
+
+/* 伏せカバー (Shroud) */
+.reveal-shroud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: linear-gradient(90deg, rgba(20, 24, 34, 0.96) 0%, rgba(26, 31, 46, 0.96) 100%);
+  z-index: 1;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.reveal-shroud.shroud-vanish {
+  opacity: 0;
+  transform: scaleY(0.7);
+  pointer-events: none;
+}
+
+.reveal-shroud-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+/* 単一ミステリアスパネル (要素数を完全に隠蔽) */
+.single-mystery-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.mystery-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 24px;
+  background: linear-gradient(135deg, #1c2233 0%, #151824 100%);
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.mystery-lock-badge::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(60deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+  animation: secretCardShimmer 2.8s infinite linear;
+}
+
+.mystery-lock-icon {
+  font-size: 1.1rem;
+}
+
+@keyframes secretCardShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* めくり後のアイテムコンテナ */
+.reveal-chips-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  z-index: 0;
+}
+
+/* ポップイン・バウンド演出 */
+.reveal-pop-item {
+  animation: popItemBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+  position: relative;
+}
+
+@keyframes popItemBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(12px);
+  }
+  70% {
+    transform: scale(1.1) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 左右差ありルールの時の順位バッジ */
+.chip-order-rank-badge {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  background: #f59e0b;
+  color: #12141a;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  border: 1px solid #fff;
+  z-index: 5;
+}
+
+/* カードモード (画像あり) のリビールテーブル調整 */
+.reveal-board-table.card-mode .reveal-tier-slot {
+  min-height: 88px;
+  padding: 6px 10px;
+}
+
+/* コントロールバー (ホスト用) */
+.reveal-controls-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ゲスト用待機メッセージバー */
+.reveal-guest-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.guest-waiting-text {
+  color: #93c5fd;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.reveal-controls-left, .reveal-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-reveal-action {
+  font-weight: 800;
+  padding: 8px 18px;
+  letter-spacing: 0.02em;
+}
+
+/* 全発表完了後のアクションカード */
+.reveal-finished-card {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+  border: 2px solid rgba(16, 185, 129, 0.6);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
+}
+
+.finished-announcement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.finished-icon {
+  font-size: 1.8rem;
+}
+
+.finished-text {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #f0fdf4;
+}
+
+.btn-pulse {
+  animation: btnPulseGlow 1.4s infinite alternate ease-in-out;
+}
+
+@keyframes btnPulseGlow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+  }
+  100% {
+    transform: scale(1.02);
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.8);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out backwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 紙吹雪Canvas (画面最前面、全画面オーバーレイ) */
+.reveal-confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 99999;
+}
+
+@media (max-width: 600px) {
+  .reveal-host-hero {
+    gap: 10px;
+  }
+  .reveal-host-name {
+    font-size: 1.15rem;
+  }
+  .reveal-host-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 1.8rem;
+  }
+  .reveal-announcer-banner {
+    font-size: 0.95rem;
+    padding: 10px 14px;
+  }
+  .reveal-tier-label {
+    width: 44px;
+    min-width: 44px;
+    font-size: 1.2rem;
+  }
+  .reveal-controls-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .reveal-controls-left, .reveal-controls-right {
+    justify-content: space-between;
+  }
+}
+

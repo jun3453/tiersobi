@@ -3,12 +3,14 @@ import { TierBoard, createComparisonGrid, createSideBySideComparison } from './t
 import { calculatePlayerScore, buildItemToRankMap } from './scoring.js';
 import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20261001_search_prefix';
 import { fetchItemImage, openImageSearchWindow } from './image-fetcher.js';
+import { TierRevealManager } from './tier-reveal.js';
 
 // DOM要素
 const screens = {
   connecting: document.getElementById('screen-connecting'),
   lobby: document.getElementById('screen-lobby'),
   playing: document.getElementById('screen-playing'),
+  reveal: document.getElementById('screen-reveal'),
   result: document.getElementById('screen-result')
 };
 
@@ -169,6 +171,25 @@ const hostPlayingControls = document.getElementById('host-playing-controls');
 const btnForceReveal = document.getElementById('btn-force-reveal');
 const btnForceSkipRound = document.getElementById('btn-force-skip-round');
 
+// ドラマチックめくり画面 (SCREEN: REVEAL)
+const revealRoundBadge = document.getElementById('reveal-round-badge');
+const revealHostNameTitle = document.getElementById('reveal-host-name-title');
+const revealThemeTitle = document.getElementById('reveal-theme-title');
+const revealRuleBadge = document.getElementById('reveal-rule-badge');
+const revealAnnouncerBanner = document.getElementById('reveal-announcer-banner');
+const revealAnnouncerIcon = document.getElementById('reveal-announcer-icon');
+const revealAnnouncerText = document.getElementById('reveal-announcer-text');
+const revealTierTable = document.getElementById('reveal-tier-table');
+const revealHostControls = document.getElementById('reveal-host-controls');
+const revealGuestControls = document.getElementById('reveal-guest-controls');
+const btnRevealNext = document.getElementById('btn-reveal-next');
+const btnRevealSkip = document.getElementById('btn-reveal-skip');
+const revealFinishedActionCard = document.getElementById('reveal-finished-action-card');
+const btnRevealGoResult = document.getElementById('btn-reveal-go-result');
+const revealConfettiCanvas = document.getElementById('reveal-confetti-canvas');
+
+let tierRevealManager = null;
+
 // 結果画面
 const resultRoundTitle = document.getElementById('result-round-title');
 const resultRoundSubtitle = document.getElementById('result-round-subtitle');
@@ -237,6 +258,9 @@ function showToast(message, type = 'info') {
  * 画面切り替え
  */
 function switchState(stateName) {
+  if (stateName !== 'reveal' && tierRevealManager) {
+    tierRevealManager.cleanup();
+  }
   Object.keys(screens).forEach((key) => {
     if (key === stateName) {
       screens[key].classList.add('active');
@@ -1676,11 +1700,74 @@ function checkRoundSubmissionsAndReveal(isForced = false) {
     // 全ゲストへブロードキャスト
     hostManager.revealRoundResult(resultPayload);
 
-    // ホスト自身も結果表示
-    showResultScreen(resultPayload);
+    // ホスト自身もドラマチックめくり画面を開始
+    startRevealStage(resultPayload);
   } catch (err) {
     console.error('[Host] 採点・発表処理中に例外発生:', err);
     showToast(`採点処理エラー: ${err.message || err}`, 'error');
+  }
+}
+
+// ==========================================
+// ドラマチックめくり発表ステージ (Dから順番にめくりあがる)
+// ==========================================
+function initTierRevealManager() {
+  if (tierRevealManager) return;
+  tierRevealManager = new TierRevealManager({
+    container: screens.reveal,
+    confettiCanvas: revealConfettiCanvas,
+    onFinished: (payload) => {
+      showResultScreen(payload);
+    },
+    onBroadcastStep: (stepData) => {
+      if (currentRole === 'host' && hostManager) {
+        hostManager.revealStep(stepData);
+      }
+    },
+    onBroadcastFinish: () => {
+      if (currentRole === 'host' && hostManager) {
+        hostManager.revealFinish();
+      }
+    }
+  });
+
+  tierRevealManager.bindElements({
+    boardEl: revealTierTable,
+    announcerBanner: revealAnnouncerBanner,
+    announcerIcon: revealAnnouncerIcon,
+    announcerText: revealAnnouncerText,
+    hostControlsEl: revealHostControls,
+    guestControlsEl: revealGuestControls,
+    btnNext: btnRevealNext,
+    btnSkip: btnRevealSkip,
+    finishedCard: revealFinishedActionCard,
+    btnGoResult: btnRevealGoResult,
+    hostNameEl: revealHostNameTitle,
+    themeTitleEl: revealThemeTitle,
+    ruleBadgeEl: revealRuleBadge,
+    roundBadgeEl: revealRoundBadge
+  });
+}
+
+function startRevealStage(payload) {
+  try {
+    if (!payload) return;
+    if (btnEditAgainTier) btnEditAgainTier.style.display = 'none';
+    currentResultPayload = payload;
+
+    initTierRevealManager();
+
+    // 主役のTierが空などの異常時は直接結果画面へフォールバック
+    if (!payload.roundHostTier) {
+      showResultScreen(payload);
+      return;
+    }
+
+    switchState('reveal');
+    tierRevealManager.initStage(payload, currentRole === 'host');
+  } catch (err) {
+    console.error('めくり演出画面の開始エラー:', err);
+    showResultScreen(payload);
   }
 }
 
@@ -2310,8 +2397,20 @@ btnJoinRoom.addEventListener('click', async () => {
         updateSubmissionStatusUI(statusList);
       },
       onRoundResultReveal: (payload) => {
-        showToast('🎉 結果が発表されました！', 'success');
-        showResultScreen(payload);
+        showToast('🎉 格付け発表が始まります！', 'success');
+        startRevealStage(payload);
+      },
+      onRevealStep: (stepData) => {
+        if (tierRevealManager && stepData && stepData.rank) {
+          tierRevealManager.syncStepFromHost(stepData.rank);
+        }
+      },
+      onRevealFinish: () => {
+        if (tierRevealManager) {
+          tierRevealManager.syncFinishFromHost();
+        } else if (currentResultPayload) {
+          showResultScreen(currentResultPayload);
+        }
       },
       onBackToLobby: () => {
         showToast('ロビーへ戻りました', 'info');
@@ -2359,6 +2458,8 @@ btnStartGame.addEventListener('click', () => {
 function main() {
   unlockThemeForm();
   setImageModeUI('text');
+  initTierRevealManager();
+
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get('room');
   if (roomId) {

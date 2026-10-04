@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>tiersobi</title>
-  <link rel="stylesheet" href="css/style.css?v=20261004_side_by_side_fix">
+  <link rel="stylesheet" href="css/style.css?v=20261004_dramatic_reveal_v3">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
@@ -345,6 +345,80 @@
       </div>
     </main>
 
+    <!-- SCREEN: REVEAL (ホスト正解Tierドラマチックめくりフェーズ) -->
+    <main id="screen-reveal" class="screen">
+      <div class="reveal-stage-container">
+        <!-- 演出ヘッダーカード -->
+        <div class="reveal-header-card">
+          <div class="reveal-header-topbar">
+            <span id="reveal-round-badge" class="round-counter-badge">ROUND 1 / 3</span>
+          </div>
+
+          <div class="reveal-host-hero">
+            <div class="reveal-host-avatar">👑</div>
+            <div class="reveal-host-info">
+              <div class="reveal-host-tag">正解格付け発表</div>
+              <h2 id="reveal-host-name-title" class="reveal-host-name">主役 さんのTier表</h2>
+            </div>
+          </div>
+
+          <div class="reveal-theme-box">
+            <span class="reveal-theme-label">お題:</span>
+            <span id="reveal-theme-title" class="reveal-theme-title">お題タイトル</span>
+            <span id="reveal-rule-badge" class="reveal-rule-badge">⚖️ 左右差なし</span>
+          </div>
+
+          <!-- 実況・盛り上げアナウンスバナー -->
+          <div id="reveal-announcer-banner" class="reveal-announcer-banner waiting-step">
+            <span id="reveal-announcer-icon" class="announcer-icon">🥁</span>
+            <span id="reveal-announcer-text" class="announcer-text">Dランクから順番に格付けをオープンします！</span>
+          </div>
+        </div>
+
+        <!-- 正解Tierボード（めくり演出エリア） -->
+        <div class="reveal-board-card">
+          <div id="reveal-tier-table" class="reveal-tier-table">
+            <!-- S〜Dの行が動的に描画されます -->
+          </div>
+        </div>
+
+        <!-- 進行コントロールバー (ホスト用) -->
+        <div id="reveal-host-controls" class="reveal-controls-card">
+          <div class="reveal-controls-left">
+            <button id="btn-reveal-next" class="btn btn-primary btn-reveal-action" type="button">
+              ▶ 【Dランク】をめくる
+            </button>
+          </div>
+          <div class="reveal-controls-right">
+            <button id="btn-reveal-skip" class="btn btn-outline-secondary btn-sm" type="button">
+              ⏩ スキップして結果へ
+            </button>
+          </div>
+        </div>
+
+        <!-- ゲスト用待機メッセージバー (ゲストはスキップ不可、ホストの進行に同期) -->
+        <div id="reveal-guest-controls" class="reveal-guest-bar" style="display: none;">
+          <div class="guest-waiting-text">
+            <span>⏳ ホストの発表を待っています...（ホストがめくると同時に表示されます）</span>
+          </div>
+        </div>
+
+        <!-- めくり完了後の大きな進むボタン (完了時に出現) -->
+        <div id="reveal-finished-action-card" class="reveal-finished-card" style="display: none;">
+          <div class="finished-announcement">
+            <div class="finished-icon">🎉</div>
+            <div class="finished-text">すべての格付けが出揃いました！</div>
+          </div>
+          <button id="btn-reveal-go-result" class="btn btn-success btn-block btn-lg btn-pulse" type="button">
+            🏆 結果発表・スコアを見る ➔
+          </button>
+        </div>
+      </div>
+
+      <!-- 紙吹雪用Canvas -->
+      <canvas id="reveal-confetti-canvas" class="reveal-confetti-canvas"></canvas>
+    </main>
+
     <!-- SCREEN 4: RESULT (結果発表フェーズ) -->
     <main id="screen-result" class="screen">
       <div class="result-section">
@@ -465,6 +539,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20261004_side_by_side_fix"></script>
+  <script type="module" src="js/app.js?v=20261004_dramatic_reveal_v3"></script>
 </body>
 </html>

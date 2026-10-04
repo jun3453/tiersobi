@@ -12,6 +12,8 @@ export const PACKET_TYPES = {
   CANCEL_SUBMISSION: 'CANCEL_SUBMISSION',
   SUBMISSION_STATUS: 'SUBMISSION_STATUS',
   REVEAL_ROUND_RESULT: 'REVEAL_ROUND_RESULT',
+  REVEAL_STEP: 'REVEAL_STEP',
+  REVEAL_FINISH: 'REVEAL_FINISH',
   BACK_TO_LOBBY: 'BACK_TO_LOBBY',
   KICK_PLAYER: 'KICK_PLAYER',
   SKIP_ROUND: 'SKIP_ROUND'
@@ -344,6 +346,20 @@ export class HostPeerManager {
   }
 
   /**
+   * めくり発表の個別ステップ進行を全ゲストに同期通知
+   */
+  revealStep(stepPayload) {
+    this.broadcast(PACKET_TYPES.REVEAL_STEP, stepPayload);
+  }
+
+  /**
+   * めくり発表完了・結果画面への遷移を全ゲストに同期通知
+   */
+  revealFinish() {
+    this.broadcast(PACKET_TYPES.REVEAL_FINISH, null);
+  }
+
+  /**
    * ロビー復帰を全ゲストに通知
    */
   backToLobby() {
@@ -435,6 +451,8 @@ export class GuestPeerManager {
     onTierRuleUpdate,
     onSubmissionStatusUpdate,
     onRoundResultReveal,
+    onRevealStep,
+    onRevealFinish,
     onBackToLobby,
     onHostDisconnected,
     onKicked,
@@ -447,6 +465,8 @@ export class GuestPeerManager {
     this.onTierRuleUpdate = onTierRuleUpdate;
     this.onSubmissionStatusUpdate = onSubmissionStatusUpdate;
     this.onRoundResultReveal = onRoundResultReveal;
+    this.onRevealStep = onRevealStep;
+    this.onRevealFinish = onRevealFinish;
     this.onBackToLobby = onBackToLobby;
     this.onHostDisconnected = onHostDisconnected;
     this.onKicked = onKicked;
@@ -526,6 +546,14 @@ export class GuestPeerManager {
 
       case PACKET_TYPES.REVEAL_ROUND_RESULT:
         if (this.onRoundResultReveal) this.onRoundResultReveal(packet.payload);
+        break;
+
+      case PACKET_TYPES.REVEAL_STEP:
+        if (this.onRevealStep) this.onRevealStep(packet.payload);
+        break;
+
+      case PACKET_TYPES.REVEAL_FINISH:
+        if (this.onRevealFinish) this.onRevealFinish();
         break;
 
       case PACKET_TYPES.BACK_TO_LOBBY:
