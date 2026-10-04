@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>tiersobi</title>
-  <link rel="stylesheet" href="css/style.css?v=20261004_kick_force_advance">
+  <link rel="stylesheet" href="css/style.css?v=20261004_search_prefix_text_mode">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
@@ -136,12 +136,12 @@
             </button>
           </div>
 
-          <!-- 3. 画像検索用オプションまとめエリア (専用パネルに集約) -->
+          <!-- 3. 画像検索＆表示オプションまとめエリア -->
           <div class="image-options-section" id="image-options-section">
             <div class="image-options-header">
               <div class="image-options-title">
                 <span class="image-options-icon">🎨</span>
-                <span class="image-options-heading">ティアアイコン＆画像オプション</span>
+                <span class="image-options-heading">表示形式＆画像検索オプション</span>
                 <span class="badge-optional">任意</span>
               </div>
               <!-- アイコン表示形式の切り替え (文字のみ / 画像あり) -->
@@ -157,32 +157,30 @@
               </div>
             </div>
 
-            <!-- 画像ありモード時に展開される画像検索・取得ツール群 -->
-            <div id="image-mode-controls" class="image-mode-controls image-mode-only" style="display: none;">
-              <div class="image-search-prefix-row">
-                <div class="prefix-input-wrap">
-                  <label for="input-search-prefix" class="prefix-label">🔍 画像検索キーワード (作品名・ジャンル等)</label>
-                  <input type="text" id="input-search-prefix" placeholder="例: ポケモン、ワンピース、日常 など" maxlength="40">
-                  <p class="hint-text prefix-hint">
-                    アイテム検索時やWikipedia取得時に「キーワード ＋ アイテム名」で高精度に画像を探せます。
-                  </p>
-                </div>
-                <div class="prefix-fetch-wrap">
-                  <button type="button" id="btn-fetch-all-images" class="btn btn-secondary btn-fetch-images" title="Wikipediaからすべてのアイテムの画像を自動取得します">
-                    ⚡ Wikipediaから画像を一括取得
-                  </button>
-                </div>
-              </div>
+            <p id="image-mode-desc-text" class="hint-text image-mode-desc-text">
+              通常モード: チップにアイテム名がテキストで表示されます。（ゲーム中の🔍で画像検索可能）
+            </p>
 
-              <!-- 画像操作ガイドヒント -->
-              <div id="image-mode-item-hint" class="image-mode-guide-callout">
-                💡 <strong>画像の変更・追加</strong>: 「⚡ 一括取得」のほか、各アイテム横の <strong>🔍</strong> でGoogle画像検索を開き、画像を枠に<strong>ドラッグ＆ドロップ</strong>（または枠をクリックしてURL入力）で自由に差し替えられます。
+            <!-- 画像検索プレフィックス入力枠 (文字のみ・画像あり 共通で利用可能) -->
+            <div class="image-search-prefix-row">
+              <div class="prefix-input-wrap">
+                <label for="input-search-prefix" class="prefix-label">🔍 画像検索プレフィックス (作品名・ジャンル等)</label>
+                <input type="text" id="input-search-prefix" placeholder="例: ポケモン、ドラゴンボール など (空欄OK)" maxlength="40">
+                <p id="prefix-hint-text" class="hint-text prefix-hint">
+                  ゲーム中やアイテムの 🔍 を押したとき「プレフィックス ＋ アイテム名」で画像検索されます（空欄の場合はアイテム名のみ）。
+                </p>
+              </div>
+              <div id="prefix-fetch-wrap" class="prefix-fetch-wrap image-mode-only" style="display: none;">
+                <button type="button" id="btn-fetch-all-images" class="btn btn-secondary btn-fetch-images" title="Wikipediaからすべてのアイテムの画像を自動取得します">
+                  ⚡ Wikipediaから画像を一括取得
+                </button>
               </div>
             </div>
 
-            <p id="image-mode-desc-text" class="hint-text image-mode-desc-text">
-              通常モード: チップにアイテム名がテキストで表示されます。
-            </p>
+            <!-- 画像ありモード時のみ表示されるガイドヒント -->
+            <div id="image-mode-item-hint" class="image-mode-guide-callout image-mode-only" style="display: none;">
+              💡 <strong>画像の変更・追加</strong>: 「⚡ 一括取得」のほか、各アイテム横の <strong>🔍</strong> でGoogle画像検索を開き、画像を枠に<strong>ドラッグ＆ドロップ</strong>（または枠をクリックしてURL入力）で自由に差し替えられます。
+            </div>
           </div>
         </div>
 
@@ -417,6 +415,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20261004_kick_force_advance"></script>
+  <script type="module" src="js/app.js?v=20261004_tab_search"></script>
 </body>
 </html>

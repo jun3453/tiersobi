@@ -1,7 +1,5 @@
 import { TIERS, TIER_COLORS } from './config.js';
 import { rankToIndex, buildItemPositionMap } from './scoring.js';
-import { openImageSearchWindow } from './image-fetcher.js';
-
 export function createSearchLink(itemText, searchPrefix = '') {
   const trimmedPrefix = (searchPrefix || '').trim();
   const trimmedItem = (itemText || '').trim();
@@ -18,14 +16,11 @@ export function createSearchLink(itemText, searchPrefix = '') {
   link.dataset.query = query;
   link.textContent = '🔍';
 
-  // チップのドラッグやタップ操作の伝播を防止し、新規ウィンドウ(ポップアップ)で開く
+  // チップのドラッグやタップ操作の伝播を防止し、同じウィンドウの別タブで開く
   link.addEventListener('pointerdown', (e) => e.stopPropagation());
   link.addEventListener('mousedown', (e) => e.stopPropagation());
   link.addEventListener('click', (e) => {
-    e.preventDefault();
     e.stopPropagation();
-    const currentQuery = link.dataset.query || (link.title ? link.title.replace(/^「|」をGoogle画像検索$/g, '') : query);
-    openImageSearchWindow(currentQuery);
   });
 
   return link;

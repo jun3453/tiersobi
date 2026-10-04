@@ -402,18 +402,14 @@ input[type="text"]:focus, select:focus, textarea:focus {
   color: var(--text-muted);
 }
 
-/* 画像ありモード時に展開されるコントロール群 */
-.image-mode-controls {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  margin-top: 12px;
-  padding-top: 12px;
-  animation: fadeIn 0.25s ease-out;
-}
-
+/* 検索プレフィックス入力行 (文字のみ・画像あり 共通) */
 .image-search-prefix-row {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 12px;
+  padding-top: 12px;
 }
 
 @media (min-width: 580px) {

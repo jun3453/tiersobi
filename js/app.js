@@ -1,5 +1,5 @@
 import { HostPeerManager, GuestPeerManager } from './p2p.js';
-import { TierBoard, createComparisonGrid } from './tier-board.js';
+import { TierBoard, createComparisonGrid } from './tier-board.js?v=20261004_tab_search';
 import { calculatePlayerScore, buildItemToRankMap } from './scoring.js';
 import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20261001_search_prefix';
 import { fetchItemImage, openImageSearchWindow } from './image-fetcher.js';
@@ -61,6 +61,8 @@ const btnApplyBulkItems = document.getElementById('btn-apply-bulk-items');
 
 // アイコン表示モード (文字のみ / 画像あり) のUI切り替え
 const imageModeControls = document.getElementById('image-mode-controls');
+const prefixFetchWrap = document.getElementById('prefix-fetch-wrap');
+const prefixHintText = document.getElementById('prefix-hint-text');
 
 function setImageModeUI(mode) {
   const isImage = mode === 'image';
@@ -87,17 +89,25 @@ function setImageModeUI(mode) {
   if (imageModeDescText) {
     imageModeDescText.textContent = isImage
       ? '画像ありモード: Tiermaker風の四角いカード（画像＋名前）で表示されます。'
-      : '通常モード: チップにアイテム名がテキストで表示されます。';
+      : '通常モード: チップにアイテム名がテキストで表示されます。（ゲーム中の🔍で画像検索可能）';
   }
 
   if (imageModeControls) {
     imageModeControls.style.display = isImage ? 'block' : 'none';
+  }
+  if (prefixFetchWrap) {
+    prefixFetchWrap.style.display = isImage ? 'block' : 'none';
   }
   if (btnFetchAllImages) {
     btnFetchAllImages.style.display = isImage ? 'inline-flex' : 'none';
   }
   if (imageModeItemHint) {
     imageModeItemHint.style.display = isImage ? 'block' : 'none';
+  }
+  if (prefixHintText) {
+    prefixHintText.textContent = isImage
+      ? 'アイテム検索時やWikipedia取得時に「プレフィックス ＋ アイテム名」で高精度に画像を探せます（空欄OK）。'
+      : 'ゲーム中やアイテムの 🔍 を押したとき「プレフィックス ＋ アイテム名」で画像検索されます（空欄の場合はアイテム名のみ）。';
   }
 }
 
