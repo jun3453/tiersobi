@@ -12,7 +12,9 @@ export const PACKET_TYPES = {
   CANCEL_SUBMISSION: 'CANCEL_SUBMISSION',
   SUBMISSION_STATUS: 'SUBMISSION_STATUS',
   REVEAL_ROUND_RESULT: 'REVEAL_ROUND_RESULT',
-  BACK_TO_LOBBY: 'BACK_TO_LOBBY'
+  BACK_TO_LOBBY: 'BACK_TO_LOBBY',
+  KICK_PLAYER: 'KICK_PLAYER',
+  SKIP_ROUND: 'SKIP_ROUND'
 };
 
 export async function ensurePeerJS() {
@@ -202,17 +204,19 @@ export class HostPeerManager {
         name: this.myPlayerName,
         submitted: Boolean(hostSubmitted),
         isRoundHost: this.myPeerId === roundHostId,
-        isHost: true
+        isHost: true,
+        isDisconnected: false
       }
     ];
     for (const [peerId, p] of this.players.entries()) {
-      if (p.conn && !p.conn.open) continue;
+      const isDisconnected = Boolean(p.conn && !p.conn.open);
       list.push({
         id: peerId,
         name: p.name,
         submitted: Boolean(p.submitted),
         isRoundHost: peerId === roundHostId,
-        isHost: false
+        isHost: false,
+        isDisconnected
       });
     }
     return list;
@@ -356,6 +360,43 @@ export class HostPeerManager {
   }
 
   /**
+   * ホストによる特定プレイヤーのキック
+   */
+  kickPlayer(peerId, reason = 'ホストによりキックされました') {
+    const player = this.players.get(peerId);
+    if (!player) return null;
+
+    console.log(`[Host] プレイヤーをキック: ${player.name} (${peerId})`);
+    if (player.conn && player.conn.open) {
+      try {
+        player.conn.send(JSON.stringify({
+          type: PACKET_TYPES.KICK_PLAYER,
+          payload: { reason }
+        }));
+      } catch (e) {
+        console.warn(`[Host] キック通知送信失敗 (${peerId}):`, e);
+      }
+      setTimeout(() => {
+        try {
+          player.conn.close();
+        } catch (e) {}
+      }, 100);
+    }
+
+    const kickedName = player.name;
+    this.players.delete(peerId);
+    this.broadcastLobbyState();
+    return { peerId, name: kickedName };
+  }
+
+  /**
+   * ラウンドスキップを全ゲストに通知
+   */
+  skipRound(payload) {
+    this.broadcast(PACKET_TYPES.SKIP_ROUND, payload);
+  }
+
+  /**
    * 今回のラウンドで提出すべき全プレイヤーが提出完了したか
    */
   areAllSubmissionsReceived(roundHostId, hostSubmitted) {
@@ -396,6 +437,8 @@ export class GuestPeerManager {
     onRoundResultReveal,
     onBackToLobby,
     onHostDisconnected,
+    onKicked,
+    onSkipRound,
     onError
   }) {
     this.onConnected = onConnected;
@@ -406,6 +449,8 @@ export class GuestPeerManager {
     this.onRoundResultReveal = onRoundResultReveal;
     this.onBackToLobby = onBackToLobby;
     this.onHostDisconnected = onHostDisconnected;
+    this.onKicked = onKicked;
+    this.onSkipRound = onSkipRound;
     this.onError = onError;
 
     this.peer = null;
@@ -485,6 +530,14 @@ export class GuestPeerManager {
 
       case PACKET_TYPES.BACK_TO_LOBBY:
         if (this.onBackToLobby) this.onBackToLobby();
+        break;
+
+      case PACKET_TYPES.KICK_PLAYER:
+        if (this.onKicked) this.onKicked(packet.payload);
+        break;
+
+      case PACKET_TYPES.SKIP_ROUND:
+        if (this.onSkipRound) this.onSkipRound(packet.payload);
         break;
     }
   }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>tiersobi</title>
-  <link rel="stylesheet" href="css/style.css?v=20261003_leave_guard">
+  <link rel="stylesheet" href="css/style.css?v=20261004_kick_force_advance">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 </head>
@@ -196,6 +196,9 @@
         <button id="btn-start-game" class="btn btn-success btn-block btn-lg" type="button" disabled>
           🎲 全員Readyでゲームスタート！
         </button>
+        <button id="btn-force-start-game" class="btn btn-outline-warning btn-block btn-sm" type="button" style="display: none; margin-top: 8px;">
+          ⚡ 未Readyのプレイヤーがいますが強制スタート
+        </button>
         <p id="host-start-hint" class="hint-text" style="margin-top: 8px;">
           全員がお題を入力してReadyになると開始できます。
         </p>
@@ -324,6 +327,23 @@
         <div id="submission-players-list" class="submission-players-list">
           <!-- プレイヤー進捗チップが動的生成されます -->
         </div>
+
+        <!-- ★ホスト専用便利機能 (強制進行・切断対策) パネル -->
+        <div id="host-playing-controls" class="host-playing-controls" style="display: none;">
+          <div class="host-controls-divider"></div>
+          <div class="host-controls-header">
+            <span class="host-controls-badge">👑 ホスト管理操作</span>
+            <span class="hint-text">切断や長考で止まった際に強制進行できます</span>
+          </div>
+          <div class="host-controls-btns">
+            <button id="btn-force-reveal" class="btn btn-warning btn-block" type="button">
+              ⏩ 未提出者を待たずに結果発表へ進む
+            </button>
+            <button id="btn-force-skip-round" class="btn btn-outline-danger btn-block btn-sm" type="button">
+              ⏭️ このラウンド自体をスキップして次へ
+            </button>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -397,6 +417,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20261003_enter_new_item"></script>
+  <script type="module" src="js/app.js?v=20261004_kick_force_advance"></script>
 </body>
 </html>

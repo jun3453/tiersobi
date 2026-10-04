@@ -38,6 +38,7 @@ const lobbyReadySummary = document.getElementById('lobby-ready-summary');
 const hostGameControls = document.getElementById('host-game-controls');
 const guestWaitingPanel = document.getElementById('guest-waiting-panel');
 const btnStartGame = document.getElementById('btn-start-game');
+const btnForceStartGame = document.getElementById('btn-force-start-game');
 const hostStartHint = document.getElementById('host-start-hint');
 
 // お題作成フォーム
@@ -154,6 +155,9 @@ const submitGuideHint = document.getElementById('submit-guide-hint');
 const submissionStatusCard = document.getElementById('submission-status-card');
 const submissionCountBadge = document.getElementById('submission-count-badge');
 const submissionPlayersList = document.getElementById('submission-players-list');
+const hostPlayingControls = document.getElementById('host-playing-controls');
+const btnForceReveal = document.getElementById('btn-force-reveal');
+const btnForceSkipRound = document.getElementById('btn-force-skip-round');
 
 // 結果画面
 const resultRoundTitle = document.getElementById('result-round-title');
@@ -881,6 +885,117 @@ btnToggleReady.addEventListener('click', () => {
 });
 
 // ==========================================
+// キック & ラウンド強制進行管理 (ホスト専用)
+// ==========================================
+
+/**
+ * キックまたは切断されたプレイヤーを今後の未消化ラウンドから除外
+ */
+function removePlayerFromFutureRounds(peerId) {
+  if (!sessionRounds || sessionRounds.length === 0) return;
+
+  const completedRounds = sessionRounds.slice(0, currentRoundIndex + 1);
+  const futureRounds = sessionRounds.slice(currentRoundIndex + 1).filter(r => r.hostPlayerId !== peerId);
+
+  sessionRounds = [...completedRounds, ...futureRounds];
+
+  sessionRounds.forEach((r, idx) => {
+    r.round = idx + 1;
+    r.totalRounds = sessionRounds.length;
+  });
+
+  if (currentRoundData) {
+    currentRoundData.totalRounds = sessionRounds.length;
+    if (playingRoundBadge) {
+      playingRoundBadge.textContent = `ROUND ${currentRoundData.round} / ${currentRoundData.totalRounds}`;
+    }
+  }
+}
+
+/**
+ * ホストによる特定プレイヤーのキック処理
+ */
+function kickPlayerFromGame(peerId, playerName) {
+  if (currentRole !== 'host' || !hostManager) return;
+
+  const result = hostManager.kickPlayer(peerId, 'ホストによりキックされました');
+  if (!result) return;
+
+  showToast(`👢 ${playerName} さんをキックしました`, 'info');
+
+  cumulativeScoresMap.delete(peerId);
+  removePlayerFromFutureRounds(peerId);
+
+  if (screens.lobby.classList.contains('active')) {
+    updateLobbyUIFromPlayers(hostManager.getAllPlayersList());
+  } else if (screens.playing.classList.contains('active')) {
+    if (currentRoundData && currentRoundData.hostPlayerId === peerId) {
+      alert(`今回の主役（${playerName}さん）が退出したため、このラウンドはスキップされます。`);
+      skipCurrentRound(true);
+      return;
+    }
+
+    const hostSubmitted = mySubmittedTier !== null;
+    const list = hostManager.broadcastSubmissionStatus(currentRoundData ? currentRoundData.hostPlayerId : null, hostSubmitted);
+    updateSubmissionStatusUI(list);
+    checkRoundSubmissionsAndReveal();
+  } else if (screens.result.classList.contains('active')) {
+    showToast(`${playerName} さんをキックしました。次のラウンドへ反映されます。`, 'info');
+  }
+}
+
+/**
+ * 現在のラウンドをスキップして次へ進む (ホスト専用)
+ */
+function skipCurrentRound(isAutomatic = false) {
+  if (currentRole !== 'host' || !currentRoundData) return;
+
+  const skippedRoundNum = currentRoundData.round;
+  const skippedTheme = currentRoundData.theme;
+
+  hostManager.skipRound({ round: skippedRoundNum, theme: skippedTheme });
+
+  if (!isAutomatic) {
+    showToast(`⏭️ Round ${skippedRoundNum} をスキップしました`, 'warning');
+  }
+
+  const isSessionEnd = (currentRoundIndex >= sessionRounds.length - 1);
+  if (isSessionEnd) {
+    alert('すべてのラウンドが終了しました。結果発表へ戻ります。');
+    const cumulativeScoresList = Array.from(cumulativeScoresMap.entries()).map(([peerId, data]) => ({
+      peerId,
+      playerName: data.name,
+      totalScore: data.totalScore
+    })).sort((a, b) => b.totalScore - a.totalScore);
+
+    const resultPayload = {
+      round: skippedRoundNum,
+      totalRounds: sessionRounds.length,
+      roundHostId: currentRoundData.hostPlayerId,
+      roundHostName: currentRoundData.hostPlayerName,
+      roundHostTier: { S: [], A: [], B: [], C: [], D: [] },
+      themeCreatorId: currentRoundData.themeCreatorId,
+      themeCreatorName: currentRoundData.themeCreatorName,
+      theme: currentRoundData.theme,
+      searchPrefix: currentRoundData.searchPrefix || '',
+      hostBonus: { peerId: currentRoundData.hostPlayerId, playerName: currentRoundData.hostPlayerName, points: 0 },
+      scores: [],
+      cumulativeScores: cumulativeScoresList,
+      allTiers: [],
+      hasOrder: false,
+      itemImages: currentRoundData.itemImages || {},
+      hasImages: Boolean(currentRoundData.hasImages),
+      isSessionEnd: true
+    };
+    hostManager.revealRoundResult(resultPayload);
+    showResultScreen(resultPayload);
+  } else {
+    currentRoundIndex++;
+    launchRound(currentRoundIndex);
+  }
+}
+
+// ==========================================
 // ロビーUI同期
 // ==========================================
 function updateLobbyUIFromPlayers(players) {
@@ -898,18 +1013,35 @@ function updateLobbyUIFromPlayers(players) {
     item.className = 'player-item';
 
     const isMe = (p.id === myPeerId) || (currentRole === 'host' && p.isHost);
+    const kickBtnHtml = (currentRole === 'host' && !p.isHost)
+      ? `<button type="button" class="btn-kick btn-kick-lobby" data-peer-id="${p.id}" data-player-name="${p.name}" title="${p.name} さんをキック">👢 キック</button>`
+      : '';
+
     item.innerHTML = `
       <div class="player-name-wrap">
         ${p.isHost ? '<span class="host-tag">HOST</span>' : ''}
         <strong>${p.name} ${isMe ? '(あなた)' : ''}</strong>
       </div>
-      <div>
+      <div class="player-actions">
         ${p.isReady
           ? '<span class="ready-badge is-ready">✅ Ready!</span>'
           : '<span class="ready-badge waiting">⌛ 入力中...</span>'}
+        ${kickBtnHtml}
       </div>
     `;
     lobbyPlayerList.appendChild(item);
+  });
+
+  // ロビーのキックボタンイベント設定
+  lobbyPlayerList.querySelectorAll('.btn-kick-lobby').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const peerId = btn.dataset.peerId;
+      const playerName = btn.dataset.playerName;
+      if (window.confirm(`${playerName} さんをルームからキックしますか？`)) {
+        kickPlayerFromGame(peerId, playerName);
+      }
+    });
   });
 
   lobbyReadySummary.textContent = `${readyCount} / ${players.length} 人 Ready`;
@@ -919,9 +1051,13 @@ function updateLobbyUIFromPlayers(players) {
     if (allReady) {
       hostStartHint.textContent = '🎉 全員Readyになりました！ゲームを開始できます。';
       hostStartHint.style.color = 'var(--success)';
+      if (btnForceStartGame) btnForceStartGame.style.display = 'none';
     } else {
       hostStartHint.textContent = '全員がお題を入力してReadyになると開始できます。';
       hostStartHint.style.color = 'var(--text-secondary)';
+      if (btnForceStartGame) {
+        btnForceStartGame.style.display = players.length >= 1 ? 'block' : 'none';
+      }
     }
   }
 }
@@ -1078,18 +1214,45 @@ function updateSubmissionStatusUI(statusList) {
     if (p.submitted) submittedCount++;
 
     const chip = document.createElement('div');
-    chip.className = `submission-player-chip ${p.submitted ? 'is-submitted' : 'is-thinking'} ${p.isRoundHost ? 'is-round-host' : ''}`;
+    const isDisconn = Boolean(p.isDisconnected);
+    chip.className = `submission-player-chip ${p.submitted ? 'is-submitted' : 'is-thinking'} ${p.isRoundHost ? 'is-round-host' : ''} ${isDisconn ? 'is-disconnected' : ''}`;
 
     const isMe = (p.id === myPeerId) || (currentRole === 'host' && hostManager && p.id === hostManager.myPeerId);
     const hostTag = p.isRoundHost ? '👑 ' : '';
     const nameText = `${hostTag}${p.name}${isMe ? ' (あなた)' : ''}`;
 
+    let statusText = p.submitted ? '(提出済)' : '(考え中)';
+    let statusIcon = p.submitted ? '✅' : '⏳';
+    if (isDisconn) {
+      statusText = '(切断疑い)';
+      statusIcon = '⚡';
+    }
+
+    // ホスト画面なら、自分以外のプレイヤーにキックボタンを表示
+    let kickBtnHtml = '';
+    if (currentRole === 'host' && !isMe) {
+      kickBtnHtml = `<button type="button" class="btn-kick-chip btn-kick-playing" data-peer-id="${p.id}" data-player-name="${p.name}" title="${p.name} さんをキック">👢 キック</button>`;
+    }
+
     chip.innerHTML = `
-      <span class="status-icon">${p.submitted ? '✅' : '⏳'}</span>
+      <span class="status-icon">${statusIcon}</span>
       <span>${nameText}</span>
-      <span style="font-size:0.75rem; opacity:0.8;">${p.submitted ? '(提出済)' : '(考え中)'}</span>
+      <span style="font-size:0.75rem; opacity:0.8;">${statusText}</span>
+      ${kickBtnHtml}
     `;
     submissionPlayersList.appendChild(chip);
+  });
+
+  // プレイ中キックボタンのイベント設定
+  submissionPlayersList.querySelectorAll('.btn-kick-playing').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const peerId = btn.dataset.peerId;
+      const playerName = btn.dataset.playerName;
+      if (window.confirm(`${playerName} さんをルームからキックしますか？`)) {
+        kickPlayerFromGame(peerId, playerName);
+      }
+    });
   });
 
   if (submissionCountBadge) {
@@ -1098,6 +1261,22 @@ function updateSubmissionStatusUI(statusList) {
       submissionCountBadge.classList.add('all-submitted');
     } else {
       submissionCountBadge.classList.remove('all-submitted');
+    }
+  }
+
+  // ホスト専用コントロールの表示更新
+  if (hostPlayingControls) {
+    if (currentRole === 'host') {
+      hostPlayingControls.style.display = 'block';
+      if (btnForceReveal) {
+        const isAllDone = (submittedCount === statusList.length && statusList.length > 0);
+        btnForceReveal.disabled = isAllDone;
+        btnForceReveal.textContent = isAllDone
+          ? '✅ 全員の回答が提出されました'
+          : '⏩ 未提出者を待たずに結果発表へ進む';
+      }
+    } else {
+      hostPlayingControls.style.display = 'none';
     }
   }
 }
@@ -1292,18 +1471,18 @@ btnEditAgainTier.addEventListener('click', () => {
 // ==========================================
 // ホスト集約 & 採点判定 (フォールトトレランス)
 // ==========================================
-function checkRoundSubmissionsAndReveal() {
+function checkRoundSubmissionsAndReveal(isForced = false) {
   if (currentRole !== 'host' || !currentRoundData) return;
 
   const roundHostId = currentRoundData.hostPlayerId;
   const hostSubmitted = mySubmittedTier !== null;
 
-  if (!hostManager.areAllSubmissionsReceived(roundHostId, hostSubmitted)) {
+  if (!isForced && !hostManager.areAllSubmissionsReceived(roundHostId, hostSubmitted)) {
     console.log('[Host] まだ未提出のプレイヤーがいます (hostSubmitted=' + hostSubmitted + ')');
     return;
   }
 
-  console.log('[Host] 全員の提出完了！採点開始');
+  console.log(`[Host] 採点開始 (isForced=${isForced})`);
 
   try {
     // 主役が決定した左右差ルールを最優先で確定
@@ -1337,22 +1516,31 @@ function checkRoundSubmissionsAndReveal() {
     const allTiers = [];
 
     // ホストのTierを追加
+    const isHostRoundHost = hostManager.myPeerId === roundHostId;
+    const isHostSkipped = !isHostRoundHost && !mySubmittedTier;
+    const hostTierToUse = mySubmittedTier || { S: [], A: [], B: [], C: [], D: [] };
+
     allTiers.push({
       peerId: hostManager.myPeerId,
       playerName: hostManager.myPlayerName,
-      isRoundHost: hostManager.myPeerId === roundHostId,
-      tier: mySubmittedTier || { S: [], A: [], B: [], C: [], D: [] }
+      isRoundHost: isHostRoundHost,
+      tier: hostTierToUse,
+      isSkipped: isHostSkipped
     });
 
-    if (hostManager.myPeerId !== roundHostId && mySubmittedTier) {
+    if (!isHostRoundHost) {
       const sc = calculatePlayerScore(
         hostManager.myPeerId,
         hostManager.myPlayerName,
-        mySubmittedTier,
+        hostTierToUse,
         roundHostTier,
         currentRoundData.items || [],
         { hasOrder: roundHasOrder }
       );
+      if (isHostSkipped) {
+        sc.isSkipped = true;
+        sc.score = 0;
+      }
       roundScores.push(sc);
       // 累計加算
       const cum = cumulativeScoresMap.get(hostManager.myPeerId) || { name: hostManager.myPlayerName, totalScore: 0 };
@@ -1364,15 +1552,19 @@ function checkRoundSubmissionsAndReveal() {
     for (const [peerId, p] of hostManager.players.entries()) {
       if (p.conn && !p.conn.open) continue; // 切断されたゲストは除外
 
+      const isGuestRoundHost = peerId === roundHostId;
+      const isGuestSkipped = !isGuestRoundHost && !p.submitted;
       const pTier = p.tier || { S: [], A: [], B: [], C: [], D: [] };
+
       allTiers.push({
         peerId,
         playerName: p.name,
-        isRoundHost: peerId === roundHostId,
-        tier: pTier
+        isRoundHost: isGuestRoundHost,
+        tier: pTier,
+        isSkipped: isGuestSkipped
       });
 
-      if (peerId !== roundHostId) {
+      if (!isGuestRoundHost) {
         const sc = calculatePlayerScore(
           peerId,
           p.name,
@@ -1381,6 +1573,10 @@ function checkRoundSubmissionsAndReveal() {
           currentRoundData.items || [],
           { hasOrder: roundHasOrder }
         );
+        if (isGuestSkipped) {
+          sc.isSkipped = true;
+          sc.score = 0;
+        }
         roundScores.push(sc);
         const cum = cumulativeScoresMap.get(peerId) || { name: p.name, totalScore: 0 };
         cum.totalScore += sc.score;
@@ -1524,8 +1720,13 @@ function showResultScreen(payload) {
         const maxScore = sc.maxScore || 1;
         const percent = Math.round(((sc.score || 0) / maxScore) * 100);
 
+        const isSkipped = Boolean(sc.isSkipped);
+        const nameDisplay = isSkipped
+          ? `${sc.playerName} <span style="font-size:0.75rem; color:#f87171; font-weight:normal;">(未提出)</span>`
+          : sc.playerName;
+
         const detailsList = Array.isArray(sc.details) ? sc.details : [];
-        const detailsHtml = detailsList.map(d => {
+        let detailsHtml = detailsList.map(d => {
           let ptsClass = 'match-miss';
           let mark = '✕ 0点';
           if (d.points === 20) {
@@ -1546,10 +1747,14 @@ function showResultScreen(payload) {
           `;
         }).join('');
 
+        if (isSkipped && detailsList.length === 0) {
+          detailsHtml = '<div style="font-size:0.8rem; color:var(--text-muted); padding:4px 0;">未提出のため採点対象外（0点）</div>';
+        }
+
         card.innerHTML = `
           <div class="score-ranking-header">
             <div class="score-rank-badge ${rankBadgeClass}">${idx + 1}</div>
-            <div class="score-player-name">${sc.playerName}</div>
+            <div class="score-player-name">${nameDisplay}</div>
             <div class="score-points">${sc.score || 0} / ${maxScore}点 <span style="font-size:0.8rem; color:var(--text-secondary);">(${percent}%)</span></div>
           </div>
           <div class="score-details-list">
@@ -1624,6 +1829,87 @@ btnNextAction.addEventListener('click', () => {
 });
 
 // ==========================================
+// ホスト専用強制進行・スキップイベント
+// ==========================================
+
+// 1. 未提出者を待たずに結果発表へ進む
+if (btnForceReveal) {
+  btnForceReveal.addEventListener('click', () => {
+    if (currentRole !== 'host' || !currentRoundData) return;
+
+    const roundHostId = currentRoundData.hostPlayerId;
+    const isHostRoundHost = (roundHostId === hostManager.myPeerId);
+
+    // 主役の提出チェック
+    let isRoundHostSubmitted = false;
+    if (isHostRoundHost) {
+      isRoundHostSubmitted = mySubmittedTier !== null;
+    } else {
+      const hostPlayer = hostManager.players.get(roundHostId);
+      isRoundHostSubmitted = Boolean(hostPlayer && hostPlayer.submitted);
+    }
+
+    if (!isRoundHostSubmitted) {
+      if (isHostRoundHost) {
+        alert('あなたが今回の主役です。先に正解Tierを配置して送信してください。\n（正解決定後に未提出の他プレイヤーをスキップできます）');
+      } else {
+        alert(`主役（${currentRoundData.hostPlayerName}さん）がまだ正解Tierを提出していません。\n主役が切断等で進められない場合は、「このラウンド自体をスキップして次へ」をご利用ください。`);
+      }
+      return;
+    }
+
+    // 未提出プレイヤーのリストアップ
+    const unsubmitted = [];
+    if (!isHostRoundHost && mySubmittedTier === null) {
+      unsubmitted.push(hostManager.myPlayerName + ' (あなた)');
+    }
+    for (const [peerId, p] of hostManager.players.entries()) {
+      if (peerId !== roundHostId && !p.submitted) {
+        unsubmitted.push(p.name);
+      }
+    }
+
+    if (unsubmitted.length === 0) {
+      showToast('全員が提出完了しています', 'info');
+      checkRoundSubmissionsAndReveal();
+      return;
+    }
+
+    const msg = `未提出のプレイヤー（${unsubmitted.join('、')}）の回答をスキップして、結果発表へ進みますか？\n※未提出者は0点として採点されます。`;
+    if (window.confirm(msg)) {
+      showToast('未提出者をスキップして結果発表へ進みます...', 'info');
+      checkRoundSubmissionsAndReveal(true);
+    }
+  });
+}
+
+// 2. このラウンド自体をスキップして次へ
+if (btnForceSkipRound) {
+  btnForceSkipRound.addEventListener('click', () => {
+    if (currentRole !== 'host' || !currentRoundData) return;
+    const msg = `現在のRound ${currentRoundData.round}（お題:「${currentRoundData.theme}」/ 主役: ${currentRoundData.hostPlayerName}）をスキップして、次のラウンドへ進みますか？\n※このラウンドの得点は加算されません。`;
+    if (window.confirm(msg)) {
+      skipCurrentRound(false);
+    }
+  });
+}
+
+// 3. ロビーでの強制スタート
+if (btnForceStartGame) {
+  btnForceStartGame.addEventListener('click', () => {
+    if (currentRole !== 'host' || !hostManager) return;
+    const players = hostManager.getAllPlayersList();
+    const unreadyPlayers = players.filter(p => !p.isReady).map(p => p.name);
+    const msg = unreadyPlayers.length > 0
+      ? `まだReadyになっていないプレイヤー（${unreadyPlayers.join('、')}）がいますが、強制的にゲームを開始しますか？\n※未Readyのプレイヤーのお題は自動穴埋め選出されます。`
+      : 'ゲームを開始しますか？';
+    if (window.confirm(msg)) {
+      startSession();
+    }
+  });
+}
+
+// ==========================================
 // 接続 & 初期化イベントリスナー
 // ==========================================
 
@@ -1669,7 +1955,19 @@ btnCreateRoom.addEventListener('click', async () => {
       },
       onPlayerLeave: (peerId, playerName) => {
         showToast(`🚪 ${playerName} さんが退出しました`, 'info');
+        cumulativeScoresMap.delete(peerId);
+        removePlayerFromFutureRounds(peerId);
         updateLobbyUIFromPlayers(hostManager.getAllPlayersList());
+
+        if (currentRoundData && currentRoundData.hostPlayerId === peerId) {
+          alert(`今回の主役（${playerName}さん）が退出したため、このラウンドはスキップされます。`);
+          skipCurrentRound(true);
+          return;
+        }
+
+        const hostSubmitted = mySubmittedTier !== null;
+        const list = hostManager.broadcastSubmissionStatus(currentRoundData ? currentRoundData.hostPlayerId : null, hostSubmitted);
+        updateSubmissionStatusUI(list);
         checkRoundSubmissionsAndReveal();
       },
       onPlayerReadyChange: () => {
@@ -1790,6 +2088,16 @@ btnJoinRoom.addEventListener('click', async () => {
         showToast('ロビーへ戻りました', 'info');
         unlockThemeForm();
         switchState('lobby');
+      },
+      onKicked: (payload) => {
+        const reason = (payload && payload.reason) || 'ホストによりキックされました';
+        setSessionActive(false);
+        alert(`【退場通知】\n${reason}`);
+        leaveSession();
+      },
+      onSkipRound: (payload) => {
+        const roundNum = (payload && payload.round) ? payload.round : '';
+        showToast(`⚠️ ホストがRound ${roundNum} をスキップしました`, 'warning');
       },
       onHostDisconnected: () => {
         setSessionActive(false);
