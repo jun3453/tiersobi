@@ -45,6 +45,8 @@ export class HostPeerManager {
     onTierRuleUpdate,
     onTierSubmit,
     onPlayerUnsubmit,
+    onRevealStep,
+    onRevealFinish,
     onError
   }) {
     this.onReady = onReady;
@@ -54,6 +56,8 @@ export class HostPeerManager {
     this.onTierRuleUpdate = onTierRuleUpdate;
     this.onTierSubmit = onTierSubmit;
     this.onPlayerUnsubmit = onPlayerUnsubmit;
+    this.onRevealStep = onRevealStep;
+    this.onRevealFinish = onRevealFinish;
     this.onError = onError;
 
     this.peer = null;
@@ -186,6 +190,22 @@ export class HostPeerManager {
           console.log(`[Host] Tier提出取り消し受信: ${player.name} (${peerId})`);
           if (this.onPlayerUnsubmit) this.onPlayerUnsubmit(peerId, player.name);
         }
+        break;
+      }
+
+      case PACKET_TYPES.REVEAL_STEP: {
+        console.log(`[Host] ゲスト(${peerId})からのめくりステップ受信:`, packet.payload);
+        // 他の全ゲストへ中継
+        this.broadcast(PACKET_TYPES.REVEAL_STEP, packet.payload);
+        if (this.onRevealStep) this.onRevealStep(packet.payload);
+        break;
+      }
+
+      case PACKET_TYPES.REVEAL_FINISH: {
+        console.log(`[Host] ゲスト(${peerId})からのめくり完了/結果画面遷移受信`);
+        // 他の全ゲストへ中継
+        this.broadcast(PACKET_TYPES.REVEAL_FINISH, null);
+        if (this.onRevealFinish) this.onRevealFinish();
         break;
       }
     }
@@ -628,6 +648,24 @@ export class GuestPeerManager {
       return false;
     }
     this.send(PACKET_TYPES.CANCEL_SUBMISSION, null);
+    return true;
+  }
+
+  sendRevealStep(stepPayload) {
+    if (!this.conn || !this.conn.open) {
+      console.error('[Guest] 送信失敗: ホストとの接続が切断されています');
+      return false;
+    }
+    this.send(PACKET_TYPES.REVEAL_STEP, stepPayload);
+    return true;
+  }
+
+  sendRevealFinish() {
+    if (!this.conn || !this.conn.open) {
+      console.error('[Guest] 送信失敗: ホストとの接続が切断されています');
+      return false;
+    }
+    this.send(PACKET_TYPES.REVEAL_FINISH, null);
     return true;
   }
 

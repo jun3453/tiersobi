@@ -3115,18 +3115,217 @@ input[type="text"]:focus, select:focus, textarea:focus {
   padding: 6px 10px;
 }
 
-/* コントロールバー (ホスト用) */
+/* コントロールバー (ホスト・主役用) */
 .reveal-controls-card {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
   padding: 14px 20px;
   box-shadow: var(--shadow-sm);
+  gap: 12px;
+}
+
+/* ホスト用の強制進行説明文 (注意書き) */
+.reveal-host-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.08) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  color: #fef3c7;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1);
+}
+
+.reveal-host-notice .notice-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.reveal-host-notice .notice-text {
+  flex: 1;
+}
+
+.reveal-host-notice strong {
+  color: #fbbf24;
+  font-weight: 800;
+}
+
+.reveal-controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.reveal-operator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  color: #c7d2fe;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+}
+
+.reveal-pick-guide {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+/* 個別選択ボタン群 (S〜D / 順位) */
+.reveal-rank-pickers,
+.final-rank-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.btn-rank-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1e2433;
+  color: #f1f5f9;
+  user-select: none;
+}
+
+.btn-rank-pick:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  filter: brightness(1.15);
+}
+
+.btn-rank-pick:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-rank-pick:disabled,
+.btn-rank-pick.is-opened {
+  opacity: 0.45;
+  cursor: default;
+  filter: grayscale(40%);
+  background: #141720 !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  color: #64748b !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* 各Tierボタンのカラー */
+.btn-pick-rank-s {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(245, 158, 11, 0.35));
+  border-color: #f59e0b;
+  color: #fef08a;
+}
+.btn-pick-rank-s:hover:not(:disabled) {
+  border-color: #ffd700;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.5);
+}
+
+.btn-pick-rank-a {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: #f97316;
+  color: #fed7aa;
+}
+
+.btn-pick-rank-b {
+  background: rgba(234, 179, 8, 0.2);
+  border-color: #eab308;
+  color: #fef08a;
+}
+
+.btn-pick-rank-c {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: #22c55e;
+  color: #bbf7d0;
+}
+
+.btn-pick-rank-d {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6;
+  color: #bfdbfe;
+}
+
+/* 順位選択ボタンのカラー */
+.btn-pick-final-1 {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(245, 158, 11, 0.4));
+  border-color: #ffd700;
+  color: #fffbeb;
+  animation: pulseGoldGlow 2s infinite alternate ease-in-out;
+}
+.btn-pick-final-2 {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: #cbd5e1;
+  color: #f1f5f9;
+}
+.btn-pick-final-3 {
+  background: rgba(217, 119, 6, 0.2);
+  border-color: #f59e0b;
+  color: #fed7aa;
+}
+.btn-pick-final-other {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #e2e8f0;
+}
+
+.reveal-controls-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
+  width: 100%;
+}
+
+/* クリック可能なシークレットカバー */
+.reveal-shroud.is-clickable {
+  cursor: pointer;
+}
+
+.reveal-shroud.is-clickable .single-mystery-panel {
+  transition: all 0.22s ease-in-out;
+}
+
+.reveal-shroud.is-clickable:hover .single-mystery-panel {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(129, 140, 248, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.reveal-shroud.is-clickable:hover .mystery-lock-badge {
+  background: rgba(99, 102, 241, 0.35);
+  border-color: #a5b4fc;
+  color: #ffffff;
+}
+
+.reveal-shroud.is-clickable:active .single-mystery-panel {
+  transform: translateY(0) scale(0.99);
 }
 
 /* ゲスト用待機メッセージバー */

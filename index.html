@@ -382,24 +382,41 @@
           </div>
         </div>
 
-        <!-- 進行コントロールバー (ホスト用) -->
+        <!-- 進行コントロールバー (主役・ホスト用) -->
         <div id="reveal-host-controls" class="reveal-controls-card">
-          <div class="reveal-controls-left">
-            <button id="btn-reveal-next" class="btn btn-primary btn-reveal-action" type="button">
-              ▶ 【Dランク】をめくる
-            </button>
+          <!-- ホスト専用の強制進行説明文 (ホストが主役以外の時のみ表示) -->
+          <div id="reveal-host-notice" class="reveal-host-notice" style="display: none;">
+            <span class="notice-icon">💡</span>
+            <span class="notice-text">
+              現在は <strong id="reveal-notice-hostname">主役</strong> さんの発表中ですが、<strong>あなたはホストなので強制進行できます</strong>（代わりにめくったりスキップが可能です）。
+            </span>
           </div>
-          <div class="reveal-controls-right">
-            <button id="btn-reveal-skip" class="btn btn-outline-secondary btn-sm" type="button">
-              ⏩ スキップして結果へ
-            </button>
+
+          <div class="reveal-controls-header">
+            <span id="reveal-operator-badge" class="reveal-operator-badge">👑 主役・ホスト進行</span>
+            <span class="reveal-pick-guide">好きなランクを選んでめくるか、「次をめくる」で進行できます</span>
+          </div>
+          <div class="reveal-rank-pickers" id="reveal-rank-pickers">
+            <!-- S, A, B, C, D の個別めくりボタンが動的に並びます -->
+          </div>
+          <div class="reveal-controls-bottom">
+            <div class="reveal-controls-left">
+              <button id="btn-reveal-next" class="btn btn-primary btn-reveal-action" type="button">
+                ▶ 【Dランク】をめくる
+              </button>
+            </div>
+            <div class="reveal-controls-right">
+              <button id="btn-reveal-skip" class="btn btn-outline-secondary btn-sm" type="button">
+                ⏩ スキップして結果へ
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- ゲスト用待機メッセージバー (ゲストはスキップ不可、ホストの進行に同期) -->
+        <!-- ゲスト用待機メッセージバー (主役・ホスト以外用) -->
         <div id="reveal-guest-controls" class="reveal-guest-bar" style="display: none;">
           <div class="guest-waiting-text">
-            <span>⏳ ホストの発表を待っています...（ホストがめくると同時に表示されます）</span>
+            <span id="reveal-guest-waiting-text">⏳ 主役の発表を待っています...（めくると同時に表示されます）</span>
           </div>
         </div>
 
@@ -573,15 +590,24 @@
 
         <!-- 進行コントロールバー (ホスト用) -->
         <div id="final-reveal-host-controls" class="reveal-controls-card">
-          <div class="reveal-controls-left">
-            <button id="btn-final-reveal-next" class="btn btn-primary btn-reveal-action" type="button">
-              ▶ 次の順位を発表
-            </button>
+          <div class="reveal-controls-header">
+            <span class="reveal-operator-badge">👑 ホスト進行</span>
+            <span class="reveal-pick-guide">好きな順位を選んで発表するか、「次の順位を発表」で進行できます</span>
           </div>
-          <div class="reveal-controls-right">
-            <button id="btn-final-reveal-skip" class="btn btn-outline-secondary btn-sm" type="button">
-              ⏩ 一括で全員発表
-            </button>
+          <div class="final-rank-pickers" id="final-rank-pickers">
+            <!-- 1位, 2位, 3位... の個別発表ボタンが動的に並びます -->
+          </div>
+          <div class="reveal-controls-bottom">
+            <div class="reveal-controls-left">
+              <button id="btn-final-reveal-next" class="btn btn-primary btn-reveal-action" type="button">
+                ▶ 次の順位を発表
+              </button>
+            </div>
+            <div class="reveal-controls-right">
+              <button id="btn-final-reveal-skip" class="btn btn-outline-secondary btn-sm" type="button">
+                ⏩ 一括で全員発表
+              </button>
+            </div>
           </div>
         </div>
 
@@ -613,6 +639,6 @@
   <div id="toast-container"></div>
 
   <!-- エントリーポイント -->
-  <script type="module" src="js/app.js?v=20261004_dramatic_reveal_v5"></script>
+  <script type="module" src="js/app.js?v=20261011_arbitrary_reveal"></script>
 </body>
 </html>

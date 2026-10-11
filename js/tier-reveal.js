@@ -1,9 +1,10 @@
 /**
  * 主役のTier表ドラマチックめくり発表演出マネージャー
- * - ホスト手動進行 / ゲスト完全同期 (ホストがめくったらゲストもめくれる)
- * - ゲストはスキップ不可、ホストの進行に従う
+ * - 好きな順番でランク（S, A, B, C, D）を発表可能！
+ * - 主役（RoundHost）もホスト（RoomHost）も両方発表操作可能（ホストの強制進行も維持）
+ * - ボード上の未発表スロットを直接クリックしてめくることも可能！
+ * - おすすめ順（D→S）の「次をめくる」ボタンも完備
  * - 伏せている間は要素数が一切わからないミステリアスカバー
- * - 2ラウンド目以降もボタン状態を確実にリセット
  */
 
 import { TIER_COLORS } from './config.js';
@@ -11,6 +12,8 @@ import { createTierItemChip } from './tier-board.js?v=20261004_side_by_side_fix'
 import { ConfettiManager } from './confetti.js';
 
 export const REVEAL_RANKS = ['D', 'C', 'B', 'A', 'S'];
+export const ALL_RANKS = ['S', 'A', 'B', 'C', 'D'];
+export const DEFAULT_ORDER = ['D', 'C', 'B', 'A', 'S'];
 
 export class TierRevealManager {
   constructor({
@@ -28,7 +31,8 @@ export class TierRevealManager {
 
     this.payload = null;
     this.isHost = false;
-    this.currentStepIdx = 0; // 0=D, 1=C, 2=B, 3=A, 4=S, 5=AllRevealed
+    this.isRoundHost = false;
+    this.canControl = false;
     this.revealedRanks = new Set();
     this.isFinished = false;
 
@@ -39,6 +43,11 @@ export class TierRevealManager {
     this.announcerText = null;
     this.hostControlsEl = null;
     this.guestControlsEl = null;
+    this.operatorBadgeEl = null;
+    this.rankPickersEl = null;
+    this.hostNoticeEl = null;
+    this.noticeHostNameEl = null;
+    this.guestWaitingTextEl = null;
     this.btnNext = null;
     this.btnSkip = null;
     this.finishedCard = null;
@@ -52,12 +61,25 @@ export class TierRevealManager {
 
   /**
    * ステージ初期化 (ラウンドごとに毎回実行)
+   * @param {Object} payload 
+   * @param {boolean|Object} optionsOrIsHost 
    */
-  initStage(payload, isHost = false) {
+  initStage(payload, optionsOrIsHost = false) {
     this.cleanup();
     this.payload = payload;
-    this.isHost = Boolean(isHost);
-    this.currentStepIdx = 0;
+
+    let isH = false;
+    let isRH = false;
+    if (typeof optionsOrIsHost === 'boolean') {
+      isH = optionsOrIsHost;
+    } else if (optionsOrIsHost && typeof optionsOrIsHost === 'object') {
+      isH = Boolean(optionsOrIsHost.isHost);
+      isRH = Boolean(optionsOrIsHost.isRoundHost);
+    }
+    this.isHost = isH;
+    this.isRoundHost = isRH;
+    this.canControl = this.isHost || this.isRoundHost;
+
     this.revealedRanks = new Set();
     this.isFinished = false;
 
@@ -81,7 +103,7 @@ export class TierRevealManager {
       this.ruleBadgeEl.className = `reveal-rule-badge ${isOrder ? 'badge-order' : 'badge-no-order'}`;
     }
 
-    // ★重要: 前ラウンドで完了時に非表示・表示切替された要素を完全にリセット！
+    // 前ラウンドの状態リセット
     if (this.btnNext) {
       this.btnNext.style.display = '';
       this.btnNext.disabled = false;
@@ -93,28 +115,59 @@ export class TierRevealManager {
       this.finishedCard.classList.remove('animate-fade-in-up');
     }
 
-    // ホスト / ゲストのコントロールバー表示切り替え
+    // コントロールバーの表示切り替え（主役 or ホストなら操作バー表示）
     if (this.hostControlsEl) {
-      this.hostControlsEl.style.display = this.isHost ? 'flex' : 'none';
+      this.hostControlsEl.style.display = this.canControl ? 'flex' : 'none';
     }
     if (this.guestControlsEl) {
-      this.guestControlsEl.style.display = this.isHost ? 'none' : 'flex';
+      this.guestControlsEl.style.display = this.canControl ? 'none' : 'flex';
     }
 
-    // Tierボードのレンダリング (要素数がわからないシークレットカバー付き)
+    // ホスト用の強制進行注意書き（ホストが主役以外の時のみ表示、ホストが主役の時は非表示）
+    if (this.hostNoticeEl) {
+      if (this.isHost && !this.isRoundHost) {
+        this.hostNoticeEl.style.display = 'flex';
+        if (this.noticeHostNameEl) {
+          this.noticeHostNameEl.textContent = payload.roundHostName || '主役';
+        }
+      } else {
+        this.hostNoticeEl.style.display = 'none';
+      }
+    }
+
+    // 操作権限バッジの文言切り替え
+    if (this.operatorBadgeEl) {
+      if (this.isRoundHost && this.isHost) {
+        this.operatorBadgeEl.textContent = '👑 あなたが主役兼ホストです';
+      } else if (this.isRoundHost) {
+        this.operatorBadgeEl.textContent = '👑 あなたが主役です（発表進行中）';
+      } else if (this.isHost) {
+        this.operatorBadgeEl.textContent = `👑 ホスト操作（主役: ${payload.roundHostName || '主役'}さん）`;
+      }
+    }
+
+    // ゲスト用待機メッセージ
+    if (this.guestWaitingTextEl) {
+      const targetName = payload.roundHostName || '主役';
+      this.guestWaitingTextEl.textContent = `⏳ 主役（${targetName}さん）の発表を待っています...（めくると同時に表示されます）`;
+    }
+
+    // Tierボードのレンダリング
     this.renderBoard(roundHostTier);
 
+    // ランク選択ボタン群の生成
+    this.renderRankPickers();
+
     // 最初のアナウンスセット
-    this.updateAnnouncerForCurrentStep();
+    this.updateAnnouncerInitial();
     this.updateControlsUI();
 
-    // 最初のランク（D）のプレビュー鼓動エフェクト
+    // 最初の推奨ランク（D）のプレビュー鼓動エフェクト
     this.highlightActiveRank('D');
   }
 
   /**
    * ボードのHTML構造を描画
-   * ★重要: 隠れている間は要素数が一切わからないように単一のシークレットバーを配置！
    */
   renderBoard(tierState) {
     if (!this.boardEl) return;
@@ -149,25 +202,42 @@ export class TierRevealManager {
       slot.className = 'reveal-tier-slot';
 
       // 1. めくり前の伏せカバー (Shroud)
-      // ★要素数が絶対にわからないように、アイテム数に関係なく単一のミステリアスパネルを配置
       const shroud = document.createElement('div');
       shroud.className = 'reveal-shroud';
 
       const shroudContent = document.createElement('div');
       shroudContent.className = 'reveal-shroud-content single-mystery-panel';
-      shroudContent.innerHTML = `
-        <div class="mystery-lock-badge">
-          <span class="mystery-lock-icon">🔒</span>
-          <span class="mystery-lock-text">未発表</span>
-        </div>
-      `;
+
+      // 操作権限がある場合は行クリックでめくれるようにする！
+      if (this.canControl) {
+        shroud.classList.add('is-clickable');
+        shroud.setAttribute('role', 'button');
+        shroud.setAttribute('title', `クリックして【${rank}ランク】を発表`);
+        shroudContent.innerHTML = `
+          <div class="mystery-lock-badge">
+            <span class="mystery-lock-icon">🔒</span>
+            <span class="mystery-lock-text">未発表 (クリックでめくる)</span>
+          </div>
+        `;
+        shroud.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.executeStep(rank);
+        });
+      } else {
+        shroudContent.innerHTML = `
+          <div class="mystery-lock-badge">
+            <span class="mystery-lock-icon">🔒</span>
+            <span class="mystery-lock-text">未発表</span>
+          </div>
+        `;
+      }
       shroud.appendChild(shroudContent);
 
       // 2. めくられた時に表示される実際のアイテムコンテナ
       const items = tierState[rank] || [];
       const chipsContainer = document.createElement('div');
       chipsContainer.className = 'reveal-chips-container';
-      chipsContainer.style.display = 'none'; // 初期は非表示
+      chipsContainer.style.display = 'none';
 
       if (items.length === 0) {
         const emptyNote = document.createElement('span');
@@ -217,10 +287,33 @@ export class TierRevealManager {
   }
 
   /**
+   * ランク選択ボタン群 (S, A, B, C, D) の描画
+   */
+  renderRankPickers() {
+    if (!this.rankPickersEl) return;
+    this.rankPickersEl.innerHTML = '';
+
+    ALL_RANKS.forEach((rank) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `btn btn-rank-pick btn-pick-rank-${rank.toLowerCase()}`;
+      btn.dataset.rank = rank;
+      btn.textContent = rank === 'S' ? '👑 Sランク' : `${rank}ランク`;
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.executeStep(rank);
+      });
+
+      this.rankPickersEl.appendChild(btn);
+    });
+  }
+
+  /**
    * 現在注目中のランク行をハイライト
    */
   highlightActiveRank(targetRank) {
-    REVEAL_RANKS.forEach((rank) => {
+    DEFAULT_ORDER.forEach((rank) => {
       const elData = this.rowElements[rank];
       if (!elData) return;
       if (rank === targetRank && !this.revealedRanks.has(rank)) {
@@ -238,21 +331,27 @@ export class TierRevealManager {
   }
 
   /**
-   * ホストが手動で「次のランク」をめくるボタンを押した時の処理
+   * 次の未発表ランク（推奨順: D, C, B, A, S）を取得
    */
-  hostExecuteNextStep() {
-    if (!this.isHost || this.isFinished) return;
+  getNextUnrevealedRank() {
+    return DEFAULT_ORDER.find((r) => !this.revealedRanks.has(r)) || null;
+  }
 
-    if (this.currentStepIdx < REVEAL_RANKS.length) {
-      const targetRank = REVEAL_RANKS[this.currentStepIdx];
-      // ホスト自身でめくり実行
-      this.revealRank(targetRank);
-      // ゲストへ同期通知
-      if (this.onBroadcastStep) {
-        this.onBroadcastStep({ rank: targetRank, stepIdx: this.currentStepIdx });
-      }
-    } else {
-      this.finishReveal();
+  /**
+   * 操作者（主役またはホスト）によるランクめくり実行
+   */
+  executeStep(targetRank = null) {
+    if (!this.canControl || this.isFinished) return;
+
+    const rankToOpen = targetRank || this.getNextUnrevealedRank();
+    if (!rankToOpen || this.revealedRanks.has(rankToOpen)) return;
+
+    // 自身でめくり実行
+    this.revealRank(rankToOpen);
+
+    // P2P同期通知（主役ならホスト経由、ホストなら直接ブロードキャスト）
+    if (this.onBroadcastStep) {
+      this.onBroadcastStep({ rank: rankToOpen });
     }
   }
 
@@ -293,7 +392,6 @@ export class TierRevealManager {
           this.announcerText.textContent = `至高の【Sランク】は ${itemNames} ！！！`;
         }
 
-        this.currentStepIdx++;
         this.updateControlsUI();
         this.checkAllRevealed();
       }, 1200);
@@ -310,15 +408,8 @@ export class TierRevealManager {
         this.announcerText.textContent = `【${rank}ランク】オープン！ ➔ ${itemNames}`;
       }
 
-      this.currentStepIdx++;
       this.updateControlsUI();
-
-      if (this.currentStepIdx < REVEAL_RANKS.length) {
-        const nextRank = REVEAL_RANKS[this.currentStepIdx];
-        this.highlightActiveRank(nextRank);
-      } else {
-        this.checkAllRevealed();
-      }
+      this.checkAllRevealed();
     }
   }
 
@@ -326,8 +417,14 @@ export class TierRevealManager {
    * 全てめくられたかチェック
    */
   checkAllRevealed() {
-    if (this.currentStepIdx >= REVEAL_RANKS.length) {
+    const isAllDone = ALL_RANKS.every((r) => this.revealedRanks.has(r));
+    if (isAllDone) {
       this.finishReveal();
+    } else {
+      const nextCandidate = this.getNextUnrevealedRank();
+      if (nextCandidate) {
+        this.highlightActiveRank(nextCandidate);
+      }
     }
   }
 
@@ -358,7 +455,7 @@ export class TierRevealManager {
     this.isFinished = true;
 
     // 未めくりランクがあれば全開放
-    REVEAL_RANKS.forEach((rank) => {
+    ALL_RANKS.forEach((rank) => {
       if (!this.revealedRanks.has(rank)) {
         this.openRankSlotVisual(rank);
       }
@@ -378,29 +475,21 @@ export class TierRevealManager {
       this.finishedCard.style.display = 'block';
       this.finishedCard.classList.add('animate-fade-in-up');
     }
+
+    this.updateControlsUI();
   }
 
   /**
-   * ホスト用スキップ：即座に結果画面へ進む（ゲストも道連れ同期）
+   * スキップ：即座に全開放して結果画面へ進む
    */
   skipToResult() {
-    REVEAL_RANKS.forEach((rank) => {
+    ALL_RANKS.forEach((rank) => {
       this.revealedRanks.add(rank);
       this.openRankSlotVisual(rank);
     });
     this.isFinished = true;
 
-    if (this.onBroadcastFinish && this.isHost) {
-      this.onBroadcastFinish();
-    }
-    this.triggerGoResult();
-  }
-
-  /**
-   * ホストが「結果発表・スコアを見る ➔」ボタンを押した時
-   */
-  hostTriggerGoResult() {
-    if (this.onBroadcastFinish && this.isHost) {
+    if (this.onBroadcastFinish && this.canControl) {
       this.onBroadcastFinish();
     }
     this.triggerGoResult();
@@ -417,36 +506,49 @@ export class TierRevealManager {
   }
 
   /**
-   * アナウンサーの文言更新
+   * 初回アナウンス
    */
-  updateAnnouncerForCurrentStep() {
+  updateAnnouncerInitial() {
     if (!this.announcerBanner || !this.announcerText) return;
-
-    if (this.currentStepIdx < REVEAL_RANKS.length) {
-      const targetRank = REVEAL_RANKS[this.currentStepIdx];
-      const msgs = {
-        D: 'まずは…最もシビアな評価【Dランク】から発表！',
-        C: '続いて…【Cランク】の発表！',
-        B: '真ん中の安定ライン…【Bランク】の発表！',
-        A: 'ここからは高評価ゾーン！…【Aランク】の発表！',
-        S: '残るは頂点……栄えある【最高評価 Sランク】は…！？'
-      };
-      this.announcerIcon.textContent = targetRank === 'S' ? '🔥' : '🥁';
-      this.announcerText.textContent = msgs[targetRank] || `${targetRank}ランクの発表！`;
-      this.announcerBanner.className = 'reveal-announcer-banner waiting-step';
-    }
+    this.announcerIcon.textContent = '🥁';
+    this.announcerText.textContent = '好きなランクを選んで発表できます！まずはどこからめくりますか？';
+    this.announcerBanner.className = 'reveal-announcer-banner waiting-step';
   }
 
   /**
-   * 操作ボタンのラベルと状態更新 (次ラウンド時も確実に再表示)
+   * 操作ボタンのラベルと状態更新
    */
   updateControlsUI() {
+    // ランク選択ボタンの開封状態更新
+    if (this.rankPickersEl) {
+      const buttons = this.rankPickersEl.querySelectorAll('.btn-rank-pick');
+      buttons.forEach((btn) => {
+        const rank = btn.dataset.rank;
+        if (this.revealedRanks.has(rank)) {
+          btn.disabled = true;
+          btn.classList.add('is-opened');
+          btn.textContent = `✅ ${rank} 開封済`;
+        } else {
+          btn.disabled = false;
+          btn.classList.remove('is-opened');
+          btn.textContent = rank === 'S' ? '👑 Sランク' : `${rank}ランク`;
+        }
+      });
+    }
+
+    // 「次をめくる」おすすめボタンの更新
     if (this.btnNext) {
-      if (this.currentStepIdx < REVEAL_RANKS.length) {
-        const nextRank = REVEAL_RANKS[this.currentStepIdx];
+      const nextRank = this.getNextUnrevealedRank();
+      if (nextRank && !this.isFinished) {
         this.btnNext.style.display = '';
-        this.btnNext.textContent = `▶ 【${nextRank}ランク】をめくる`;
         this.btnNext.disabled = false;
+        if (nextRank === 'S') {
+          this.btnNext.textContent = '👑 【Sランク（最高評価）】をめくる';
+          this.btnNext.className = 'btn btn-warning btn-reveal-action btn-pulse';
+        } else {
+          this.btnNext.textContent = `▶ 【${nextRank}ランク】をめくる`;
+          this.btnNext.className = 'btn btn-primary btn-reveal-action';
+        }
       } else {
         this.btnNext.style.display = 'none';
         this.btnNext.disabled = true;
@@ -455,8 +557,7 @@ export class TierRevealManager {
   }
 
   /**
-   * 外部（ホストからのP2P同期メッセージ）からのステップ進行
-   * ★ホストがめくった瞬間にゲストもめくれる！
+   * 外部（P2P同期メッセージ）からのステップ進行
    */
   syncStepFromHost(rank) {
     if (!this.revealedRanks.has(rank)) {
@@ -465,7 +566,7 @@ export class TierRevealManager {
   }
 
   /**
-   * 外部（ホストからの結果画面遷移メッセージ）からの画面移動
+   * 外部（P2P同期メッセージ）からの結果画面移動
    */
   syncFinishFromHost() {
     this.triggerGoResult();
@@ -481,6 +582,11 @@ export class TierRevealManager {
     announcerText,
     hostControlsEl,
     guestControlsEl,
+    operatorBadgeEl,
+    rankPickersEl,
+    hostNoticeEl,
+    noticeHostNameEl,
+    guestWaitingTextEl,
     btnNext,
     btnSkip,
     finishedCard,
@@ -496,6 +602,11 @@ export class TierRevealManager {
     this.announcerText = announcerText;
     this.hostControlsEl = hostControlsEl;
     this.guestControlsEl = guestControlsEl;
+    this.operatorBadgeEl = operatorBadgeEl;
+    this.rankPickersEl = rankPickersEl;
+    this.hostNoticeEl = hostNoticeEl;
+    this.noticeHostNameEl = noticeHostNameEl;
+    this.guestWaitingTextEl = guestWaitingTextEl;
     this.btnNext = btnNext;
     this.btnSkip = btnSkip;
     this.finishedCard = finishedCard;
@@ -505,14 +616,14 @@ export class TierRevealManager {
     this.ruleBadgeEl = ruleBadgeEl;
     this.roundBadgeEl = roundBadgeEl;
 
-    // ホストの「次をめくる」ボタン
+    // 「次をめくる」ボタン
     if (this.btnNext) {
       this.btnNext.addEventListener('click', () => {
-        this.hostExecuteNextStep();
+        this.executeStep();
       });
     }
 
-    // ホスト用スキップ (ゲストも一緒に遷移)
+    // スキップボタン
     if (this.btnSkip) {
       this.btnSkip.addEventListener('click', () => {
         this.skipToResult();
@@ -522,11 +633,10 @@ export class TierRevealManager {
     // 結果へ進むボタン
     if (this.btnGoResult) {
       this.btnGoResult.addEventListener('click', () => {
-        if (this.isHost) {
-          this.hostTriggerGoResult();
-        } else {
-          this.triggerGoResult();
+        if (this.canControl && this.onBroadcastFinish) {
+          this.onBroadcastFinish();
         }
+        this.triggerGoResult();
       });
     }
   }

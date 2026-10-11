@@ -1,10 +1,10 @@
-import { HostPeerManager, GuestPeerManager } from './p2p.js';
+import { HostPeerManager, GuestPeerManager } from './p2p.js?v=20261011_arbitrary_reveal';
 import { TierBoard, createComparisonGrid, createSideBySideComparison } from './tier-board.js?v=20261004_side_by_side_fix';
 import { calculatePlayerScore, buildItemToRankMap } from './scoring.js';
 import { THEME_EXAMPLES, MIN_ITEMS, MAX_ITEMS } from './config.js?v=20261001_search_prefix';
 import { fetchItemImage, openImageSearchWindow } from './image-fetcher.js';
-import { TierRevealManager } from './tier-reveal.js';
-import { FinalRevealManager } from './final-reveal.js';
+import { TierRevealManager } from './tier-reveal.js?v=20261011_arbitrary_reveal';
+import { FinalRevealManager } from './final-reveal.js?v=20261011_arbitrary_reveal';
 
 // DOM要素
 const screens = {
@@ -184,6 +184,11 @@ const revealAnnouncerText = document.getElementById('reveal-announcer-text');
 const revealTierTable = document.getElementById('reveal-tier-table');
 const revealHostControls = document.getElementById('reveal-host-controls');
 const revealGuestControls = document.getElementById('reveal-guest-controls');
+const revealOperatorBadge = document.getElementById('reveal-operator-badge');
+const revealRankPickers = document.getElementById('reveal-rank-pickers');
+const revealHostNotice = document.getElementById('reveal-host-notice');
+const revealNoticeHostName = document.getElementById('reveal-notice-hostname');
+const revealGuestWaitingText = document.getElementById('reveal-guest-waiting-text');
 const btnRevealNext = document.getElementById('btn-reveal-next');
 const btnRevealSkip = document.getElementById('btn-reveal-skip');
 const revealFinishedActionCard = document.getElementById('reveal-finished-action-card');
@@ -200,6 +205,7 @@ const finalRevealAnnouncerText = document.getElementById('final-reveal-announcer
 const finalStandingsList = document.getElementById('final-standings-list');
 const finalRevealHostControls = document.getElementById('final-reveal-host-controls');
 const finalRevealGuestControls = document.getElementById('final-reveal-guest-controls');
+const finalRankPickers = document.getElementById('final-rank-pickers');
 const btnFinalRevealNext = document.getElementById('btn-final-reveal-next');
 const btnFinalRevealSkip = document.getElementById('btn-final-reveal-skip');
 const finalRevealFinishedCard = document.getElementById('final-reveal-finished-card');
@@ -1744,11 +1750,15 @@ function initTierRevealManager() {
     onBroadcastStep: (stepData) => {
       if (currentRole === 'host' && hostManager) {
         hostManager.revealStep(stepData);
+      } else if (currentRole === 'guest' && guestManager) {
+        guestManager.sendRevealStep(stepData);
       }
     },
     onBroadcastFinish: () => {
       if (currentRole === 'host' && hostManager) {
         hostManager.revealFinish();
+      } else if (currentRole === 'guest' && guestManager) {
+        guestManager.sendRevealFinish();
       }
     }
   });
@@ -1760,6 +1770,11 @@ function initTierRevealManager() {
     announcerText: revealAnnouncerText,
     hostControlsEl: revealHostControls,
     guestControlsEl: revealGuestControls,
+    operatorBadgeEl: revealOperatorBadge,
+    rankPickersEl: revealRankPickers,
+    hostNoticeEl: revealHostNotice,
+    noticeHostNameEl: revealNoticeHostName,
+    guestWaitingTextEl: revealGuestWaitingText,
     btnNext: btnRevealNext,
     btnSkip: btnRevealSkip,
     finishedCard: revealFinishedActionCard,
@@ -1786,7 +1801,9 @@ function startRevealStage(payload) {
     }
 
     switchState('reveal');
-    tierRevealManager.initStage(payload, currentRole === 'host');
+    const isHost = currentRole === 'host';
+    const isRoundHost = Boolean(myPeerId && payload && myPeerId === payload.roundHostId);
+    tierRevealManager.initStage(payload, { isHost, isRoundHost });
   } catch (err) {
     console.error('めくり演出画面の開始エラー:', err);
     showResultScreen(payload);
@@ -1825,6 +1842,7 @@ function initFinalRevealManager() {
     announcerText: finalRevealAnnouncerText,
     hostControlsEl: finalRevealHostControls,
     guestControlsEl: finalRevealGuestControls,
+    rankPickersEl: finalRankPickers,
     btnNext: btnFinalRevealNext,
     btnSkip: btnFinalRevealSkip,
     finishedCard: finalRevealFinishedCard,
@@ -2384,6 +2402,18 @@ btnCreateRoom.addEventListener('click', async () => {
         const hostSubmitted = mySubmittedTier !== null;
         const list = hostManager.broadcastSubmissionStatus(currentRoundData ? currentRoundData.hostPlayerId : null, hostSubmitted);
         updateSubmissionStatusUI(list);
+      },
+      onRevealStep: (stepData) => {
+        if (tierRevealManager && stepData && stepData.rank) {
+          tierRevealManager.syncStepFromHost(stepData.rank);
+        }
+      },
+      onRevealFinish: () => {
+        if (tierRevealManager) {
+          tierRevealManager.syncFinishFromHost();
+        } else if (currentResultPayload) {
+          showResultScreen(currentResultPayload);
+        }
       },
       onError: (err) => {
         showToast(`通信エラー: ${err.message || err}`, 'error');

@@ -1,8 +1,9 @@
 /**
  * 最終総合順位ドラマチック発表演出マネージャー
- * - 最下位から1位（総合優勝）へ順番にめくりあがる
- * - ホスト手動進行 / ゲスト完全リアルタイム同期
- * - ゲストはスキップ不可、ホストの進行に従う
+ * - ホストは好きな順番で順位（1位、2位、3位...）を発表可能！
+ * - おすすめ順（最下位から順に発表）のボタンも完備
+ * - ランキング一覧の未発表行を直接クリックして発表することも可能！
+ * - ゲスト完全リアルタイム同期
  * - 1位（総合優勝者）のクライマックス演出＆紙吹雪
  */
 
@@ -22,7 +23,7 @@ export class FinalRevealManager {
 
     this.standings = []; // Array<{ peerId, playerName, totalScore, rank }>
     this.steps = []; // ユニークな順位の降順配列 (例: [4, 3, 2, 1])
-    this.currentStepIdx = 0;
+    this.uniqueRanksAsc = []; // ユニークな順位の昇順配列 (例: [1, 2, 3, 4])
     this.revealedRanks = new Set();
     this.isFinished = false;
     this.isHost = false;
@@ -34,6 +35,7 @@ export class FinalRevealManager {
     this.announcerText = null;
     this.hostControlsEl = null;
     this.guestControlsEl = null;
+    this.rankPickersEl = null;
     this.btnNext = null;
     this.btnSkip = null;
     this.finishedCard = null;
@@ -49,7 +51,6 @@ export class FinalRevealManager {
   initStage(cumulativeScores, totalRounds = 1, isHost = false) {
     this.cleanup();
     this.isHost = Boolean(isHost);
-    this.currentStepIdx = 0;
     this.revealedRanks = new Set();
     this.isFinished = false;
 
@@ -70,9 +71,10 @@ export class FinalRevealManager {
       };
     });
 
-    // 発表順序ステップ (最下位から1位へ)
-    const uniqueRanks = Array.from(new Set(this.standings.map(s => s.rank))).sort((a, b) => b - a);
-    this.steps = uniqueRanks;
+    // ユニークな順位のリスト（降順：最下位から、昇順：1位から）
+    const uniqueRanks = Array.from(new Set(this.standings.map((s) => s.rank)));
+    this.steps = [...uniqueRanks].sort((a, b) => b - a);
+    this.uniqueRanksAsc = [...uniqueRanks].sort((a, b) => a - b);
 
     // 前回のDOM状態をリセット
     if (this.btnNext) {
@@ -95,13 +97,17 @@ export class FinalRevealManager {
     // ランキング表のレンダリング (伏せ状態)
     this.renderStandings();
 
+    // 順位選択ボタン群の生成
+    this.renderRankPickers();
+
     // 最初のアナウンス & コントロール更新
-    this.updateAnnouncerForCurrentStep();
+    this.updateAnnouncerInitial();
     this.updateControlsUI();
 
-    // 最初の発表対象順位をハイライト
-    if (this.steps.length > 0) {
-      this.highlightActiveRank(this.steps[0]);
+    // 最下位順位のプレビューハイライト
+    const lowestRank = this.getNextUnrevealedRank();
+    if (lowestRank !== null) {
+      this.highlightActiveRank(lowestRank);
     }
   }
 
@@ -139,14 +145,34 @@ export class FinalRevealManager {
       // 伏せカバー
       const shroud = document.createElement('div');
       shroud.className = 'reveal-shroud';
-      shroud.innerHTML = `
-        <div class="reveal-shroud-content single-mystery-panel">
-          <div class="mystery-lock-badge">
-            <span class="mystery-lock-icon">🔒</span>
-            <span class="mystery-lock-text">未発表</span>
+
+      // ホストは直接クリックでその順位を発表可能！
+      if (this.isHost) {
+        shroud.classList.add('is-clickable');
+        shroud.setAttribute('role', 'button');
+        shroud.setAttribute('title', `クリックして【第${rank}位】を発表`);
+        shroud.innerHTML = `
+          <div class="reveal-shroud-content single-mystery-panel">
+            <div class="mystery-lock-badge">
+              <span class="mystery-lock-icon">🔒</span>
+              <span class="mystery-lock-text">未発表 (クリックで発表)</span>
+            </div>
           </div>
-        </div>
-      `;
+        `;
+        shroud.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.executeStep(rank);
+        });
+      } else {
+        shroud.innerHTML = `
+          <div class="reveal-shroud-content single-mystery-panel">
+            <div class="mystery-lock-badge">
+              <span class="mystery-lock-icon">🔒</span>
+              <span class="mystery-lock-text">未発表</span>
+            </div>
+          </div>
+        `;
+      }
 
       // オープン後の情報コンテナ
       const infoContainer = document.createElement('div');
@@ -179,6 +205,42 @@ export class FinalRevealManager {
   }
 
   /**
+   * 順位選択ボタン群 (1位, 2位, 3位, 4位...) の描画
+   */
+  renderRankPickers() {
+    if (!this.rankPickersEl) return;
+    this.rankPickersEl.innerHTML = '';
+
+    this.uniqueRanksAsc.forEach((rank) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      let pickClass = 'btn-pick-final-other';
+      let label = `${rank}位`;
+      if (rank === 1) {
+        pickClass = 'btn-pick-final-1';
+        label = '👑 1位 (優勝)';
+      } else if (rank === 2) {
+        pickClass = 'btn-pick-final-2';
+        label = '🥈 2位';
+      } else if (rank === 3) {
+        pickClass = 'btn-pick-final-3';
+        label = '🥉 3位';
+      }
+
+      btn.className = `btn btn-rank-pick ${pickClass}`;
+      btn.dataset.rank = rank;
+      btn.textContent = label;
+
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.executeStep(rank);
+      });
+
+      this.rankPickersEl.appendChild(btn);
+    });
+  }
+
+  /**
    * 現在注目中の順位行をハイライト
    */
   highlightActiveRank(targetRank) {
@@ -202,19 +264,25 @@ export class FinalRevealManager {
   }
 
   /**
-   * ホストが手動で「次の順位を発表」を押した時
+   * 次の未発表順位（推奨順: 最下位から順）を取得
    */
-  hostExecuteNextStep() {
+  getNextUnrevealedRank() {
+    return this.steps.find((r) => !this.revealedRanks.has(r)) ?? null;
+  }
+
+  /**
+   * ホストによる順位発表実行
+   */
+  executeStep(targetRank = null) {
     if (!this.isHost || this.isFinished) return;
 
-    if (this.currentStepIdx < this.steps.length) {
-      const targetRank = this.steps[this.currentStepIdx];
-      this.revealRank(targetRank);
-      if (this.onBroadcastStep) {
-        this.onBroadcastStep({ rank: targetRank, stepIdx: this.currentStepIdx });
-      }
-    } else {
-      this.finishReveal();
+    const rankToOpen = targetRank !== null ? targetRank : this.getNextUnrevealedRank();
+    if (rankToOpen === null || this.revealedRanks.has(rankToOpen)) return;
+
+    this.revealRank(rankToOpen);
+
+    if (this.onBroadcastStep) {
+      this.onBroadcastStep({ rank: rankToOpen });
     }
   }
 
@@ -244,8 +312,8 @@ export class FinalRevealManager {
           this.confetti.start(160, 5000);
         }
 
-        const winners = this.standings.filter(s => s.rank === 1);
-        const winnerNames = winners.map(w => w.playerName).join('・');
+        const winners = this.standings.filter((s) => s.rank === 1);
+        const winnerNames = winners.map((w) => w.playerName).join('・');
         const winnerScore = winners[0] ? winners[0].totalScore : 0;
 
         if (this.announcerBanner) {
@@ -258,17 +326,16 @@ export class FinalRevealManager {
           this.winnerMsgEl.textContent = `👑 総合優勝: ${winnerNames} さん (${winnerScore}点)！おめでとうございます！`;
         }
 
-        this.currentStepIdx++;
         this.updateControlsUI();
-        this.finishReveal();
+        this.checkAllRevealed();
       }, 1200);
 
     } else {
       // 2位以下のオープン
       this.openRankSlotVisual(rank);
 
-      const players = this.standings.filter(s => s.rank === rank);
-      const names = players.map(p => `${p.playerName} (${p.totalScore}点)`).join('、');
+      const players = this.standings.filter((s) => s.rank === rank);
+      const names = players.map((p) => `${p.playerName} (${p.totalScore}点)`).join('、');
 
       if (this.announcerBanner) {
         this.announcerBanner.className = 'reveal-announcer-banner step-opened';
@@ -276,14 +343,22 @@ export class FinalRevealManager {
         this.announcerText.textContent = `【第${rank}位】発表！ ➔ ${names}`;
       }
 
-      this.currentStepIdx++;
       this.updateControlsUI();
+      this.checkAllRevealed();
+    }
+  }
 
-      if (this.currentStepIdx < this.steps.length) {
-        const nextRank = this.steps[this.currentStepIdx];
-        this.highlightActiveRank(nextRank);
-      } else {
-        this.finishReveal();
+  /**
+   * 全順位発表されたかチェック
+   */
+  checkAllRevealed() {
+    const isAllDone = this.steps.every((r) => this.revealedRanks.has(r));
+    if (isAllDone) {
+      this.finishReveal();
+    } else {
+      const nextCandidate = this.getNextUnrevealedRank();
+      if (nextCandidate !== null) {
+        this.highlightActiveRank(nextCandidate);
       }
     }
   }
@@ -311,11 +386,17 @@ export class FinalRevealManager {
     this.isFinished = true;
 
     // 未発表があれば全開放
-    this.steps.forEach(r => {
+    this.steps.forEach((r) => {
       if (!this.revealedRanks.has(r)) {
         this.openRankSlotVisual(r);
       }
     });
+
+    if (this.announcerBanner) {
+      this.announcerBanner.className = 'reveal-announcer-banner all-finished';
+      this.announcerIcon.textContent = '🎉';
+      this.announcerText.textContent = '全順位の発表が完了しました！セッション終了へ進みましょう！';
+    }
 
     if (this.btnNext) {
       this.btnNext.style.display = 'none';
@@ -325,13 +406,15 @@ export class FinalRevealManager {
       this.finishedCard.style.display = 'block';
       this.finishedCard.classList.add('animate-fade-in-up');
     }
+
+    this.updateControlsUI();
   }
 
   /**
    * 一括スキップ
    */
   skipToAll() {
-    this.steps.forEach(r => {
+    this.steps.forEach((r) => {
       this.revealedRanks.add(r);
       this.openRankSlotVisual(r);
     });
@@ -339,19 +422,55 @@ export class FinalRevealManager {
   }
 
   /**
-   * 操作ボタンのラベル更新
+   * 初回アナウンス
+   */
+  updateAnnouncerInitial() {
+    if (!this.announcerBanner || !this.announcerText) return;
+    this.announcerIcon.textContent = '🥁';
+    this.announcerText.textContent = '好きな順位を選んで発表できます！最下位から順に発表することも可能です。';
+    this.announcerBanner.className = 'reveal-announcer-banner waiting-step';
+  }
+
+  /**
+   * 操作ボタンのラベルと状態更新
    */
   updateControlsUI() {
+    // 順位ボタンの状態更新
+    if (this.rankPickersEl) {
+      const buttons = this.rankPickersEl.querySelectorAll('.btn-rank-pick');
+      buttons.forEach((btn) => {
+        const rank = Number(btn.dataset.rank);
+        if (this.revealedRanks.has(rank)) {
+          btn.disabled = true;
+          btn.classList.add('is-opened');
+          btn.textContent = `✅ ${rank}位 発表済`;
+        } else {
+          btn.disabled = false;
+          btn.classList.remove('is-opened');
+          if (rank === 1) {
+            btn.textContent = '👑 1位 (優勝)';
+          } else if (rank === 2) {
+            btn.textContent = '🥈 2位';
+          } else if (rank === 3) {
+            btn.textContent = '🥉 3位';
+          } else {
+            btn.textContent = `${rank}位`;
+          }
+        }
+      });
+    }
+
+    // 「次の順位を発表」おすすめボタン
     if (this.btnNext) {
-      if (this.currentStepIdx < this.steps.length) {
-        const nextRank = this.steps[this.currentStepIdx];
-        const label = nextRank === 1 ? '👑 【第1位（優勝）】を発表！' : `▶ 【第${nextRank}位】を発表`;
+      const nextRank = this.getNextUnrevealedRank();
+      if (nextRank !== null && !this.isFinished) {
         this.btnNext.style.display = '';
-        this.btnNext.textContent = label;
         this.btnNext.disabled = false;
         if (nextRank === 1) {
+          this.btnNext.textContent = '👑 【第1位（優勝）】を発表！';
           this.btnNext.className = 'btn btn-warning btn-reveal-action btn-pulse';
         } else {
+          this.btnNext.textContent = `▶ 【第${nextRank}位】を発表`;
           this.btnNext.className = 'btn btn-primary btn-reveal-action';
         }
       } else {
@@ -371,30 +490,6 @@ export class FinalRevealManager {
   }
 
   /**
-   * アナウンサーの文言更新
-   */
-  updateAnnouncerForCurrentStep() {
-    if (!this.announcerBanner || !this.announcerText) return;
-
-    if (this.currentStepIdx < this.steps.length) {
-      const targetRank = this.steps[this.currentStepIdx];
-      let msg = '';
-      if (targetRank === 1) {
-        msg = '残るは頂点……栄えある【総合優勝・第1位】は…！？';
-      } else if (targetRank === 2) {
-        msg = '準優勝！【第2位】の発表！';
-      } else if (targetRank === 3) {
-        msg = '表彰台！【第3位】の発表！';
-      } else {
-        msg = `まずは…【第${targetRank}位】から発表！`;
-      }
-      this.announcerIcon.textContent = targetRank === 1 ? '🔥' : '🥁';
-      this.announcerText.textContent = msg;
-      this.announcerBanner.className = 'reveal-announcer-banner waiting-step';
-    }
-  }
-
-  /**
    * DOM要素バインド
    */
   bindElements({
@@ -404,6 +499,7 @@ export class FinalRevealManager {
     announcerText,
     hostControlsEl,
     guestControlsEl,
+    rankPickersEl,
     btnNext,
     btnSkip,
     finishedCard,
@@ -417,6 +513,7 @@ export class FinalRevealManager {
     this.announcerText = announcerText;
     this.hostControlsEl = hostControlsEl;
     this.guestControlsEl = guestControlsEl;
+    this.rankPickersEl = rankPickersEl;
     this.btnNext = btnNext;
     this.btnSkip = btnSkip;
     this.finishedCard = finishedCard;
@@ -426,7 +523,7 @@ export class FinalRevealManager {
 
     if (this.btnNext) {
       this.btnNext.addEventListener('click', () => {
-        this.hostExecuteNextStep();
+        this.executeStep();
       });
     }
 
